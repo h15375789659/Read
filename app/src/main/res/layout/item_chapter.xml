@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:background="?attr/selectableItemBackground"
+    android:gravity="center_vertical"
+    android:orientation="horizontal"
+    android:paddingHorizontal="16dp"
+    android:paddingVertical="12dp">
+
+    <!-- 章节序号 -->
+    <TextView
+        android:id="@+id/chapter_index_text"
+        android:layout_width="40dp"
+        android:layout_height="wrap_content"
+        android:textColor="@color/text_secondary"
+        android:textSize="14sp"
+        tools:text="1" />
+
+    <!-- 章节标题 -->
+    <TextView
+        android:id="@+id/chapter_title_text"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:ellipsize="end"
+        android:maxLines="1"
+        android:textColor="@color/text_primary"
+        android:textSize="15sp"
+        tools:text="第一章 开始" />
+
+    <!-- 当前阅读标记 -->
+    <ImageView
+        android:id="@+id/current_indicator"
+        android:layout_width="16dp"
+        android:layout_height="16dp"
+        android:layout_marginStart="8dp"
+        android:src="@android:drawable/ic_media_play"
+        android:visibility="gone"
+        app:tint="@color/primary"
+        xmlns:app="http://schemas.android.com/apk/res-auto"
+        tools:visibility="visible" />
+
+</LinearLayout>
