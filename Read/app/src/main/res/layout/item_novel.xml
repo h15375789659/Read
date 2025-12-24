@@ -1,0 +1,108 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/item_container"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:background="?attr/selectableItemBackground"
+    android:clickable="true"
+    android:focusable="true"
+    android:orientation="horizontal"
+    android:paddingHorizontal="16dp"
+    android:paddingVertical="12dp">
+
+    <!-- 封面图片 -->
+    <ImageView
+        android:id="@+id/img_cover"
+        android:layout_width="70dp"
+        android:layout_height="95dp"
+        android:background="@color/cover_placeholder"
+        android:contentDescription="@string/app_name"
+        android:scaleType="centerCrop"
+        tools:src="@android:drawable/ic_menu_gallery" />
+
+    <!-- 右侧信息区域 -->
+    <LinearLayout
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="12dp"
+        android:layout_weight="1"
+        android:orientation="vertical">
+
+        <!-- 标题行 -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <!-- 小说标题 -->
+            <TextView
+                android:id="@+id/tv_title"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:ellipsize="end"
+                android:maxLines="1"
+                android:textColor="@color/text_primary"
+                android:textSize="16sp"
+                android:textStyle="bold"
+                tools:text="重生之贼行天下" />
+
+            <!-- 未读章节数标签 -->
+            <TextView
+                android:id="@+id/tv_unread_count"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="8dp"
+                android:background="@drawable/bg_chapter_count"
+                android:paddingHorizontal="8dp"
+                android:paddingVertical="2dp"
+                android:textColor="@color/chapter_count_text"
+                android:textSize="11sp"
+                android:visibility="gone"
+                tools:text="6"
+                tools:visibility="visible" />
+
+        </LinearLayout>
+
+        <!-- 第一行：作者 -->
+        <TextView
+            android:id="@+id/tv_author"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:ellipsize="end"
+            android:maxLines="1"
+            android:textColor="@color/text_secondary"
+            android:textSize="13sp"
+            tools:text="⊙ 发飙的蜗牛" />
+
+        <!-- 第二行：当前阅读章节 -->
+        <TextView
+            android:id="@+id/tv_current_chapter"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:ellipsize="end"
+            android:maxLines="1"
+            android:textColor="@color/text_secondary"
+            android:textSize="13sp"
+            tools:text="⊙ 第九九五章 前世今生（大结局）" />
+
+        <!-- 第三行：最新章节 -->
+        <TextView
+            android:id="@+id/tv_latest_chapter"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:ellipsize="end"
+            android:maxLines="1"
+            android:textColor="@color/text_hint"
+            android:textSize="12sp"
+            tools:text="⊙ 第九九五章 前世今生（大结局）" />
+
+    </LinearLayout>
+
+</LinearLayout>

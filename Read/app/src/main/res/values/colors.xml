@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="black">#FF000000</color>
+    <color name="white">#FFFFFFFF</color>
+
+    <!-- 主题色 - 棕色系 -->
+    <color name="primary">#8B6914</color>
+    <color name="primary_dark">#6B5010</color>
+    <color name="primary_variant">#A67C00</color>
+    <color name="secondary">#D4A574</color>
+    <color name="secondary_variant">#B8956A</color>
+
+    <!-- 背景色 -->
+    <color name="background">#FFFAF5</color>
+    <color name="surface">#FFFFFF</color>
+    <color name="card_background">#FFFFFF</color>
+
+    <!-- 书架顶部栏 -->
+    <color name="bookshelf_header">#8B6914</color>
+    <color name="bookshelf_header_bg">#D4C4A8</color>
+    <color name="bookshelf_tab_selected">#4A3C28</color>
+    <color name="bookshelf_tab_normal">#7A6B55</color>
+    <color name="bookshelf_icon_color">#4A3C28</color>
+
+    <!-- 文字颜色 -->
+    <color name="text_primary">#333333</color>
+    <color name="text_secondary">#666666</color>
+    <color name="text_hint">#999999</color>
+
+    <!-- 封面占位符 -->
+    <color name="cover_placeholder">#E8E0D0</color>
+
+    <!-- 搜索框 -->
+    <color name="search_input_bg">#F5EFE5</color>
+
+    <!-- 章节数标签 -->
+    <color name="chapter_count_bg">#E8E0D0</color>
+    <color name="chapter_count_text">#8B7355</color>
+
+    <!-- 进度颜色 -->
+    <color name="progress_background">#E0E0E0</color>
+    <color name="progress_foreground">#8B6914</color>
+
+    <!-- 状态颜色 -->
+    <color name="error">#B00020</color>
+    <color name="success">#4CAF50</color>
+    <color name="warning">#FF9800</color>
+
+    <!-- 置顶标识 -->
+    <color name="pinned_indicator">#FFC107</color>
+
+    <!-- 分隔线 -->
+    <color name="divider">#E0E0E0</color>
+
+    <!-- 搜索结果选中 -->
+    <color name="search_result_selected">#FFF3E0</color>
+</resources>
