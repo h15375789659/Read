@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/batch_bottom_actions"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:background="@color/bookshelf_top_bar_bg"
+    android:elevation="8dp"
+    android:orientation="horizontal"
+    android:paddingHorizontal="16dp"
+    android:paddingVertical="12dp">
+
+    <!-- 修改分类按钮 -->
+    <TextView
+        android:id="@+id/btn_batch_change_category"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginEnd="8dp"
+        android:layout_weight="1"
+        android:background="@drawable/bg_batch_button"
+        android:gravity="center"
+        android:paddingVertical="12dp"
+        android:text="@string/batch_change_category"
+        android:textColor="@color/colorPrimary"
+        android:textSize="14sp" />
+
+    <!-- 删除按钮 -->
+    <TextView
+        android:id="@+id/btn_batch_delete"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="8dp"
+        android:layout_weight="1"
+        android:background="@drawable/bg_batch_button_danger"
+        android:gravity="center"
+        android:paddingVertical="12dp"
+        android:text="@string/batch_delete"
+        android:textColor="@color/error_color"
+        android:textSize="14sp" />
+
+</LinearLayout>

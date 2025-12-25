@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/batch_operation_bar"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:background="@color/bookshelf_top_bar_bg"
+    android:gravity="center_vertical"
+    android:orientation="horizontal"
+    android:paddingHorizontal="8dp"
+    android:paddingVertical="8dp">
+
+    <!-- 返回/取消按钮 -->
+    <ImageButton
+        android:id="@+id/btn_batch_cancel"
+        android:layout_width="48dp"
+        android:layout_height="48dp"
+        android:background="?attr/selectableItemBackgroundBorderless"
+        android:contentDescription="@string/dialog_cancel"
+        android:src="@drawable/ic_arrow_back"
+        app:tint="@color/icon_tint" />
+
+    <!-- 选中数量文本 -->
+    <TextView
+        android:id="@+id/tv_selected_count"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="8dp"
+        android:layout_weight="1"
+        android:text="@string/batch_selected_count"
+        android:textColor="@color/text_primary"
+        android:textSize="16sp" />
+
+    <!-- 全选按钮 -->
+    <TextView
+        android:id="@+id/btn_select_all"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:background="?attr/selectableItemBackground"
+        android:paddingHorizontal="16dp"
+        android:paddingVertical="8dp"
+        android:text="@string/batch_select_all"
+        android:textColor="@color/colorPrimary"
+        android:textSize="14sp" />
+
+</LinearLayout>

@@ -77,6 +77,39 @@ public interface WebParserRepository {
     boolean isValidUrl(String url);
     
     /**
+     * 检查是否已存在相同URL的小说
+     * @param sourceUrl 小说源URL
+     * @return 已存在的小说信息（包含ID和已下载章节数），如果不存在返回null
+     */
+    Single<ExistingNovelInfo> checkExistingNovel(String sourceUrl);
+    
+    /**
+     * 已存在小说的信息
+     */
+    class ExistingNovelInfo {
+        private final long novelId;
+        private final String title;
+        private final int downloadedChapters;
+        private final int totalChapters;
+        
+        public ExistingNovelInfo(long novelId, String title, int downloadedChapters, int totalChapters) {
+            this.novelId = novelId;
+            this.title = title;
+            this.downloadedChapters = downloadedChapters;
+            this.totalChapters = totalChapters;
+        }
+        
+        public long getNovelId() { return novelId; }
+        public String getTitle() { return title; }
+        public int getDownloadedChapters() { return downloadedChapters; }
+        public int getTotalChapters() { return totalChapters; }
+        
+        public boolean isComplete() {
+            return downloadedChapters >= totalChapters;
+        }
+    }
+    
+    /**
      * 进度回调接口
      */
     interface ProgressCallback {

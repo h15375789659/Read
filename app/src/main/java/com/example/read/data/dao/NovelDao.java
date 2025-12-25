@@ -78,4 +78,11 @@ public interface NovelDao {
     
     @Query("UPDATE novels SET category = :category WHERE id = :novelId")
     void updateCategory(long novelId, String category);
+    
+    /**
+     * 根据源URL查询小说（用于断点续传检测）
+     */
+    @Query("SELECT * FROM novels WHERE sourceUrl = :sourceUrl LIMIT 1")
+    NovelEntity getNovelBySourceUrl(String sourceUrl);
+
 }

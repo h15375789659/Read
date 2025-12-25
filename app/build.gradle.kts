@@ -82,6 +82,10 @@ dependencies {
     // SwipeRefreshLayout
     implementation(libs.swiperefreshlayout)
     
+    // Glide - 图片加载优化
+    implementation(libs.glide)
+    annotationProcessor(libs.glide.compiler)
+    
     // Testing
     testImplementation(libs.junit)
     testImplementation(libs.jqwik)

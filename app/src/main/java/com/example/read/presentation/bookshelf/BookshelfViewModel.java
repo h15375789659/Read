@@ -13,7 +13,9 @@ import com.example.read.domain.repository.FileImportRepository;
 import com.example.read.domain.repository.NovelRepository;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 import javax.inject.Inject;
 
@@ -597,6 +599,170 @@ public class BookshelfViewModel extends ViewModel {
      */
     public LiveData<List<Novel>> getNovelsLiveData() {
         return novelsMediator;
+    }
+
+    // ==================== 批量管理功能 ====================
+
+    /**
+     * 进入批量管理模式
+     */
+    public void enterBatchMode() {
+        Log.d(TAG, "enterBatchMode 被调用");
+        BookshelfUiState currentState = _uiState.getValue();
+        if (currentState == null) {
+            currentState = new BookshelfUiState();
+        }
+        BookshelfUiState newState = new BookshelfUiState(currentState);
+        newState.setBatchMode(true);
+        newState.setSelectedNovelIds(new HashSet<>());
+        _uiState.setValue(newState);
+    }
+
+    /**
+     * 退出批量管理模式
+     */
+    public void exitBatchMode() {
+        Log.d(TAG, "exitBatchMode 被调用");
+        BookshelfUiState currentState = _uiState.getValue();
+        if (currentState == null) {
+            currentState = new BookshelfUiState();
+        }
+        BookshelfUiState newState = new BookshelfUiState(currentState);
+        newState.setBatchMode(false);
+        newState.setSelectedNovelIds(new HashSet<>());
+        _uiState.setValue(newState);
+    }
+
+    /**
+     * 切换小说选中状态
+     * @param novelId 小说ID
+     */
+    public void toggleNovelSelection(long novelId) {
+        Log.d(TAG, "toggleNovelSelection 被调用，novelId: " + novelId);
+        BookshelfUiState currentState = _uiState.getValue();
+        if (currentState == null || !currentState.isBatchMode()) {
+            return;
+        }
+        
+        BookshelfUiState newState = new BookshelfUiState(currentState);
+        Set<Long> selectedIds = new HashSet<>(newState.getSelectedNovelIds());
+        
+        if (selectedIds.contains(novelId)) {
+            selectedIds.remove(novelId);
+        } else {
+            selectedIds.add(novelId);
+        }
+        
+        newState.setSelectedNovelIds(selectedIds);
+        _uiState.setValue(newState);
+    }
+
+    /**
+     * 全选/取消全选
+     */
+    public void toggleSelectAll() {
+        Log.d(TAG, "toggleSelectAll 被调用");
+        BookshelfUiState currentState = _uiState.getValue();
+        if (currentState == null || !currentState.isBatchMode()) {
+            return;
+        }
+        
+        BookshelfUiState newState = new BookshelfUiState(currentState);
+        List<Novel> novels = newState.getNovels();
+        
+        if (newState.isAllSelected()) {
+            // 已全选，取消全选
+            newState.setSelectedNovelIds(new HashSet<>());
+        } else {
+            // 未全选，全选所有
+            Set<Long> allIds = new HashSet<>();
+            if (novels != null) {
+                for (Novel novel : novels) {
+                    allIds.add(novel.getId());
+                }
+            }
+            newState.setSelectedNovelIds(allIds);
+        }
+        
+        _uiState.setValue(newState);
+    }
+
+    /**
+     * 批量删除选中的小说
+     * @param novelIds 要删除的小说ID列表
+     */
+    public void batchDeleteNovels(List<Long> novelIds) {
+        if (novelIds == null || novelIds.isEmpty()) {
+            return;
+        }
+        
+        Log.d(TAG, "batchDeleteNovels 被调用，数量: " + novelIds.size());
+        
+        disposables.add(
+            io.reactivex.rxjava3.core.Completable.fromAction(() -> novelRepository.batchDeleteNovels(novelIds))
+                .subscribeOn(Schedulers.io())
+                .observeOn(AndroidSchedulers.mainThread())
+                .subscribe(
+                    () -> {
+                        Log.d(TAG, "批量删除成功");
+                        // 退出批量模式
+                        exitBatchMode();
+                        // 刷新列表
+                        loadNovels();
+                    },
+                    error -> {
+                        Log.e(TAG, "批量删除失败", error);
+                        updateState(state -> {
+                            state.setError("批量删除失败: " + error.getMessage());
+                        });
+                    }
+                )
+        );
+    }
+
+    /**
+     * 批量修改选中小说的分类
+     * @param novelIds 要修改的小说ID列表
+     * @param category 目标分类
+     */
+    public void batchUpdateCategory(List<Long> novelIds, String category) {
+        if (novelIds == null || novelIds.isEmpty() || category == null) {
+            return;
+        }
+        
+        Log.d(TAG, "batchUpdateCategory 被调用，数量: " + novelIds.size() + ", 分类: " + category);
+        
+        disposables.add(
+            io.reactivex.rxjava3.core.Completable.fromAction(() -> novelRepository.batchUpdateCategory(novelIds, category))
+                .subscribeOn(Schedulers.io())
+                .observeOn(AndroidSchedulers.mainThread())
+                .subscribe(
+                    () -> {
+                        Log.d(TAG, "批量修改分类成功");
+                        // 退出批量模式
+                        exitBatchMode();
+                        // 刷新列表
+                        loadNovels();
+                    },
+                    error -> {
+                        Log.e(TAG, "批量修改分类失败", error);
+                        updateState(state -> {
+                            state.setError("批量修改分类失败: " + error.getMessage());
+                        });
+                    }
+                )
+        );
+    }
+
+    /**
+     * 获取当前选中的小说ID列表
+     */
+    public List<Long> getSelectedNovelIds() {
+        BookshelfUiState currentState = _uiState.getValue();
+        if (currentState == null) {
+            return new ArrayList<>();
+        }
+        return new ArrayList<>(currentState.getSelectedNovelIds());
     }
 
     @Override

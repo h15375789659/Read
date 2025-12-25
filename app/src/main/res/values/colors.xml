@@ -18,14 +18,19 @@
     <!-- 书架顶部栏 -->
     <color name="bookshelf_header">#8B6914</color>
     <color name="bookshelf_header_bg">#D4C4A8</color>
+    <color name="bookshelf_top_bar_bg">#D4C4A8</color>
     <color name="bookshelf_tab_selected">#4A3C28</color>
     <color name="bookshelf_tab_normal">#7A6B55</color>
     <color name="bookshelf_icon_color">#4A3C28</color>
+    <color name="icon_tint">#4A3C28</color>
 
     <!-- 文字颜色 -->
     <color name="text_primary">#333333</color>
     <color name="text_secondary">#666666</color>
     <color name="text_hint">#999999</color>
+
+    <!-- 搜索框 -->
+    <color name="search_background">#F5F5F5</color>
 
     <!-- 封面占位符 -->
     <color name="cover_placeholder">#E8E0D0</color>
@@ -44,8 +49,10 @@
 
     <!-- 状态颜色 -->
     <color name="error">#B00020</color>
+    <color name="error_color">#B00020</color>
     <color name="success">#4CAF50</color>
     <color name="warning">#FF9800</color>
+    <color name="colorPrimary">#8B6914</color>
 
     <!-- 置顶标识 -->
     <color name="pinned_indicator">#FFC107</color>

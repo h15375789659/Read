@@ -65,6 +65,11 @@ public class ReaderUiState {
     private Chapter nextChapter; // 下一章
     private String previousChapterContent; // 上一章内容（已过滤）
     private String nextChapterContent; // 下一章内容（已过滤）
+    
+    // 书签相关状态
+    private boolean bookmarkAdded; // 书签添加成功标志
+    private boolean bookmarkDeleted; // 书签删除成功标志
+    private int jumpToPosition; // 跳转到指定位置（书签跳转用）
 
     public ReaderUiState() {
         this.chapters = new ArrayList<>();
@@ -91,6 +96,9 @@ public class ReaderUiState {
         this.nextChapter = null;
         this.previousChapterContent = "";
         this.nextChapterContent = "";
+        this.bookmarkAdded = false;
+        this.bookmarkDeleted = false;
+        this.jumpToPosition = -1;
     }
 
     /**
@@ -124,6 +132,9 @@ public class ReaderUiState {
         this.nextChapter = other.nextChapter;
         this.previousChapterContent = other.previousChapterContent;
         this.nextChapterContent = other.nextChapterContent;
+        this.bookmarkAdded = other.bookmarkAdded;
+        this.bookmarkDeleted = other.bookmarkDeleted;
+        this.jumpToPosition = other.jumpToPosition;
     }
 
 
@@ -156,6 +167,9 @@ public class ReaderUiState {
     public Chapter getNextChapter() { return nextChapter; }
     public String getPreviousChapterContent() { return previousChapterContent; }
     public String getNextChapterContent() { return nextChapterContent; }
+    public boolean isBookmarkAdded() { return bookmarkAdded; }
+    public boolean isBookmarkDeleted() { return bookmarkDeleted; }
+    public int getJumpToPosition() { return jumpToPosition; }
 
     // ==================== Setters ====================
     
@@ -202,6 +216,9 @@ public class ReaderUiState {
     public void setNextChapterContent(String nextChapterContent) { 
         this.nextChapterContent = nextChapterContent != null ? nextChapterContent : ""; 
     }
+    public void setBookmarkAdded(boolean bookmarkAdded) { this.bookmarkAdded = bookmarkAdded; }
+    public void setBookmarkDeleted(boolean bookmarkDeleted) { this.bookmarkDeleted = bookmarkDeleted; }
+    public void setJumpToPosition(int jumpToPosition) { this.jumpToPosition = jumpToPosition; }
 
     // ==================== 便捷方法 ====================
 

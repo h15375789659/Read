@@ -1,6 +1,11 @@
 package com.example.read;
 
 import android.app.Application;
+
+import com.example.read.data.DefaultDataInitializer;
+
+import javax.inject.Inject;
+
 import dagger.hilt.android.HiltAndroidApp;
 
 /**
@@ -10,9 +15,13 @@ import dagger.hilt.android.HiltAndroidApp;
 @HiltAndroidApp
 public class NovelReaderApplication extends Application {
     
+    @Inject
+    DefaultDataInitializer defaultDataInitializer;
+    
     @Override
     public void onCreate() {
         super.onCreate();
-        // Application initialization code will go here
+        // 初始化默认数据（如解析规则）
+        defaultDataInitializer.initializeDefaultData();
     }
 }

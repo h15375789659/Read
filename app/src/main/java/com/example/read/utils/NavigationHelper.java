@@ -9,6 +9,7 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
 import com.example.read.presentation.bookshelf.BookshelfActivity;
+import com.example.read.presentation.parser.WebParserActivity;
 import com.example.read.presentation.reader.ReaderActivity;
 
 /**
@@ -165,6 +166,41 @@ public final class NavigationHelper {
         intent.putExtra(EXTRA_BOOKMARK_ID, bookmarkId);
         intent.putExtra(EXTRA_POSITION, position);
         context.startActivity(intent);
+    }
+
+    // ==================== 网站解析导航 ====================
+
+    /**
+     * 导航到网站解析界面
+     * 
+     * @param context 上下文
+     */
+    public static void navigateToWebParser(@NonNull Context context) {
+        Intent intent = new Intent(context, WebParserActivity.class);
+        context.startActivity(intent);
+    }
+
+    /**
+     * 导航到网站解析界面（带URL）
+     * 
+     * @param context 上下文
+     * @param url     预填充的URL
+     */
+    public static void navigateToWebParser(@NonNull Context context, @NonNull String url) {
+        Intent intent = new Intent(context, WebParserActivity.class);
+        intent.putExtra(EXTRA_URL, url);
+        context.startActivity(intent);
+    }
+
+    /**
+     * 导航到网站解析界面（带返回结果）
+     * 
+     * @param activity    Activity
+     * @param requestCode 请求码
+     */
+    public static void navigateToWebParserForResult(@NonNull Activity activity, int requestCode) {
+        Intent intent = new Intent(activity, WebParserActivity.class);
+        activity.startActivityForResult(intent, requestCode);
     }
 
     // ==================== Intent数据提取 ====================

@@ -293,4 +293,26 @@ public class NovelRepositoryImpl implements NovelRepository {
     public void updateCategory(long novelId, String category) {
         novelDao.updateCategory(novelId, category);
     }
+    
+    @Override
+    public void batchDeleteNovels(List<Long> novelIds) {
+        if (novelIds == null || novelIds.isEmpty()) {
+            return;
+        }
+        // 批量删除小说（由于设置了外键级联删除，会自动删除关联的章节）
+        for (Long novelId : novelIds) {
+            novelDao.deleteNovelById(novelId);
+        }
+    }
+    
+    @Override
+    public void batchUpdateCategory(List<Long> novelIds, String category) {
+        if (novelIds == null || novelIds.isEmpty()) {
+            return;
+        }
+        // 批量更新小说分类
+        for (Long novelId : novelIds) {
+            novelDao.updateCategory(novelId, category);
+        }
+    }
 }

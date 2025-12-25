@@ -290,56 +290,72 @@ public class PageAdapter extends RecyclerView.Adapter<PageAdapter.PageViewHolder
      * 设置字体大小
      */
     public void setFontSize(float fontSize) {
-        this.fontSize = fontSize;
-        notifyDataSetChanged();
+        if (this.fontSize != fontSize) {
+            this.fontSize = fontSize;
+            notifyItemRangeChanged(0, getItemCount(), "fontSize");
+        }
     }
 
     /**
      * 设置行间距
      */
     public void setLineSpacing(float lineSpacing) {
-        this.lineSpacing = lineSpacing;
-        notifyDataSetChanged();
+        if (this.lineSpacing != lineSpacing) {
+            this.lineSpacing = lineSpacing;
+            notifyItemRangeChanged(0, getItemCount(), "lineSpacing");
+        }
     }
 
     /**
      * 设置文本颜色
      */
     public void setTextColor(int color) {
-        this.textColor = color;
-        notifyDataSetChanged();
+        if (this.textColor != color) {
+            this.textColor = color;
+            notifyItemRangeChanged(0, getItemCount(), "textColor");
+        }
     }
 
     /**
      * 设置背景颜色
      */
     public void setBackgroundColor(int color) {
-        this.backgroundColor = color;
-        notifyDataSetChanged();
+        if (this.backgroundColor != color) {
+            this.backgroundColor = color;
+            notifyItemRangeChanged(0, getItemCount(), "backgroundColor");
+        }
     }
 
     /**
      * 设置字体
      */
     public void setFont(ReaderFont font) {
-        this.font = font;
-        notifyDataSetChanged();
+        if (this.font != font) {
+            this.font = font;
+            notifyItemRangeChanged(0, getItemCount(), "font");
+        }
     }
     
     /**
      * 设置左上角章节名
      */
     public void setStatusChapterName(String name) {
-        this.statusChapterName = name != null ? name : "";
-        notifyDataSetChanged();
+        String newName = name != null ? name : "";
+        if (!this.statusChapterName.equals(newName)) {
+            this.statusChapterName = newName;
+            notifyItemRangeChanged(0, getItemCount(), "statusChapterName");
+        }
     }
     
     /**
      * 设置右下角时间电量
      */
     public void setStatusTimeBattery(String info) {
-        this.statusTimeBattery = info != null ? info : "";
-        notifyDataSetChanged();
+        String newInfo = info != null ? info : "";
+        if (!this.statusTimeBattery.equals(newInfo)) {
+            this.statusTimeBattery = newInfo;
+            notifyItemRangeChanged(0, getItemCount(), "statusTimeBattery");
+        }
     }
 
     /**

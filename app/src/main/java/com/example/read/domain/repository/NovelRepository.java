@@ -118,4 +118,17 @@ public interface NovelRepository {
      * 更新小说分类
      */
     void updateCategory(long novelId, String category);
+    
+    /**
+     * 批量删除小说
+     * @param novelIds 要删除的小说ID列表
+     */
+    void batchDeleteNovels(List<Long> novelIds);
+    
+    /**
+     * 批量更新小说分类
+     * @param novelIds 要更新的小说ID列表
+     * @param category 目标分类
+     */
+    void batchUpdateCategory(List<Long> novelIds, String category);
 }

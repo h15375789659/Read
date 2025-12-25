@@ -44,4 +44,7 @@ public interface ParserRuleDao {
 
     @Query("SELECT COUNT(*) FROM parser_rules")
     int getRuleCount();
+    
+    @Query("SELECT * FROM parser_rules WHERE name = :name LIMIT 1")
+    ParserRuleEntity getRuleByName(String name);
 }

@@ -8,7 +8,7 @@
     android:background="@color/background"
     tools:context=".presentation.bookshelf.BookshelfActivity">
 
-    <!-- 顶部容器 - 包含普通顶部栏和搜索栏 -->
+    <!-- 顶部容器 - 包含普通顶部栏、搜索栏和批量操作栏 -->
     <FrameLayout
         android:id="@+id/top_container"
         android:layout_width="match_parent"
@@ -103,6 +103,14 @@
 
         </LinearLayout>
 
+        <!-- 批量操作栏（默认隐藏） -->
+        <include
+            android:id="@+id/batch_operation_bar"
+            layout="@layout/layout_batch_operation_bar"
+            android:layout_width="match_parent"
+            android:layout_height="56dp"
+            android:visibility="gone" />
+
     </FrameLayout>
 
     <!-- 小说列表 -->
@@ -176,5 +184,14 @@
         android:src="@android:drawable/ic_input_add"
         app:backgroundTint="@color/primary"
         app:tint="@color/white" />
+
+    <!-- 批量操作底部按钮（默认隐藏） -->
+    <include
+        android:id="@+id/batch_bottom_actions"
+        layout="@layout/layout_batch_bottom_actions"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom"
+        android:visibility="gone" />
 
 </androidx.coordinatorlayout.widget.CoordinatorLayout>

@@ -43,6 +43,13 @@
             android:exported="false"
             android:screenOrientation="portrait"
             android:windowSoftInputMode="adjustPan" />
+        
+        <!-- 网站解析界面 -->
+        <activity
+            android:name=".presentation.parser.WebParserActivity"
+            android:exported="false"
+            android:screenOrientation="portrait"
+            android:windowSoftInputMode="adjustResize" />
             
     </application>
 

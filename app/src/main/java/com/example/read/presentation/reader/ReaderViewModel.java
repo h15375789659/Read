@@ -5,6 +5,7 @@ import androidx.lifecycle.MutableLiveData;
 import androidx.lifecycle.Observer;
 import androidx.lifecycle.ViewModel;
 
+import com.example.read.domain.model.Bookmark;
 import com.example.read.domain.model.Chapter;
 import com.example.read.domain.model.Novel;
 import com.example.read.domain.model.PageAnimation;
@@ -16,6 +17,7 @@ import com.example.read.domain.model.SearchResult;
 import com.example.read.domain.model.TTSState;
 import com.example.read.domain.model.VoiceInfo;
 import com.example.read.domain.repository.BlockedWordRepository;
+import com.example.read.domain.repository.BookmarkRepository;
 import com.example.read.domain.repository.NovelRepository;
 import com.example.read.domain.repository.SettingsRepository;
 import com.example.read.domain.repository.StatisticsRepository;
@@ -45,6 +47,7 @@ public class ReaderViewModel extends ViewModel {
     private final BlockedWordRepository blockedWordRepository;
     private final StatisticsRepository statisticsRepository;
     private final TTSRepository ttsRepository;
+    private final BookmarkRepository bookmarkRepository;
     private final ExecutorService executorService;
 
     // UI状态
@@ -68,13 +71,15 @@ public class ReaderViewModel extends ViewModel {
             ThemeRepository themeRepository,
             BlockedWordRepository blockedWordRepository,
             StatisticsRepository statisticsRepository,
-            TTSRepository ttsRepository) {
+            TTSRepository ttsRepository,
+            BookmarkRepository bookmarkRepository) {
         this.novelRepository = novelRepository;
         this.settingsRepository = settingsRepository;
         this.themeRepository = themeRepository;
         this.blockedWordRepository = blockedWordRepository;
         this.statisticsRepository = statisticsRepository;
         this.ttsRepository = ttsRepository;
+        this.bookmarkRepository = bookmarkRepository;
         this.executorService = Executors.newSingleThreadExecutor();
         
         // 初始化设置
@@ -178,6 +183,15 @@ public class ReaderViewModel extends ViewModel {
                 // 加载章节列表
                 List<Chapter> chapters = novelRepository.getChaptersByNovelIdSync(novelId);
                 
+                // 检查章节列表是否为空
+                if (chapters == null || chapters.isEmpty()) {
+                    updateState(state -> {
+                        state.setLoading(false);
+                        state.setError("该小说没有章节内容，可能下载未完成");
+                    });
+                    return;
+                }
+                
                 // 确定要显示的章节（上次阅读位置）
                 Chapter currentChapter = null;
                 if (novel.getCurrentChapterId() != null) {
@@ -189,6 +203,25 @@ public class ReaderViewModel extends ViewModel {
 
                 final Chapter finalChapter = currentChapter;
                 final String displayContent = getFilteredContent(finalChapter);
+                
+                // 检查章节内容是否为空
+                if (displayContent == null || displayContent.trim().isEmpty()) {
+                    // 检查是否所有章节内容都为空
+                    boolean allEmpty = true;
+                    for (Chapter ch : chapters) {
+                        if (ch.getContent() != null && !ch.getContent().trim().isEmpty()) {
+                            allEmpty = false;
+                            break;
+                        }
+                    }
+                    if (allEmpty) {
+                        updateState(state -> {
+                            state.setLoading(false);
+                            state.setError("章节内容解析失败，请尝试更换解析规则重新下载");
+                        });
+                        return;
+                    }
+                }
                 
                 // 预加载相邻章节
                 Chapter prevChapter = null;
@@ -271,6 +304,18 @@ public class ReaderViewModel extends ViewModel {
      * @param chapterId 章节ID
      */
     public void loadChapter(long chapterId) {
+        loadChapter(chapterId, -1); // -1 表示不跳转到特定位置
+    }
+
+    /**
+     * 切换到指定章节并跳转到指定位置
+     * 验证需求：5.6 - 加载新章节内容并更新阅读进度
+     * 验证需求：7.4 - 跳转到书签对应的位置
+     * 
+     * @param chapterId 章节ID
+     * @param jumpPosition 跳转位置（-1表示不跳转）
+     */
+    public void loadChapter(long chapterId, int jumpPosition) {
         executorService.execute(() -> {
             try {
                 Chapter chapter = novelRepository.getChapterById(chapterId);
@@ -321,6 +366,7 @@ public class ReaderViewModel extends ViewModel {
                 final Chapter finalNextChapter = nextChapter;
                 final String finalPrevContent = prevContent;
                 final String finalNextContent = nextContent;
+                final int finalJumpPosition = jumpPosition;
 
                 updateState(state -> {
                     state.setCurrentChapter(chapter);
@@ -329,6 +375,10 @@ public class ReaderViewModel extends ViewModel {
                     state.setNextChapter(finalNextChapter);
                     state.setPreviousChapterContent(finalPrevContent);
                     state.setNextChapterContent(finalNextContent);
+                    // 设置跳转位置（在章节加载完成后设置）
+                    if (finalJumpPosition >= 0) {
+                        state.setJumpToPosition(finalJumpPosition);
+                    }
                 });
 
                 // 更新阅读进度
@@ -958,6 +1008,117 @@ public class ReaderViewModel extends ViewModel {
             return novelRepository.getChaptersByNovelId(currentNovelId);
         }
         return new MutableLiveData<>(new ArrayList<>());
+    }
+
+    // ==================== 书签功能 ====================
+
+    /**
+     * 获取当前小说的书签列表
+     * 验证需求：7.3 - 显示书签列表
+     */
+    public LiveData<List<Bookmark>> getBookmarks() {
+        if (currentNovelId > 0) {
+            return bookmarkRepository.getBookmarksByNovelId(currentNovelId);
+        }
+        return new MutableLiveData<>(new ArrayList<>());
+    }
+
+    /**
+     * 添加书签
+     * 验证需求：7.1 - 保存当前章节和段落位置
+     * 验证需求：7.2 - 允许用户为书签添加备注文字
+     * 
+     * @param note 书签备注（可选）
+     * @param position 当前阅读位置
+     * @return 是否添加成功
+     */
+    public void addBookmark(String note, int position) {
+        ReaderUiState currentState = _uiState.getValue();
+        if (currentState == null || currentState.getCurrentChapter() == null) {
+            return;
+        }
+
+        Chapter currentChapter = currentState.getCurrentChapter();
+        
+        executorService.execute(() -> {
+            try {
+                Bookmark bookmark = new Bookmark(
+                        currentNovelId,
+                        currentChapter.getId(),
+                        currentChapter.getTitle(),
+                        position
+                );
+                bookmark.setNote(note);
+                
+                long id = bookmarkRepository.insertBookmark(bookmark);
+                if (id > 0) {
+                    // 书签添加成功，通过UI状态通知
+                    updateState(state -> state.setBookmarkAdded(true));
+                }
+            } catch (Exception e) {
+                updateState(state -> state.setError("添加书签失败: " + e.getMessage()));
+            }
+        });
+    }
+
+    /**
+     * 删除书签
+     * 验证需求：7.5 - 从本地存储中移除该书签记录
+     * 
+     * @param bookmarkId 书签ID
+     */
+    public void deleteBookmark(long bookmarkId) {
+        executorService.execute(() -> {
+            try {
+                bookmarkRepository.deleteBookmark(bookmarkId);
+                updateState(state -> state.setBookmarkDeleted(true));
+            } catch (Exception e) {
+                updateState(state -> state.setError("删除书签失败: " + e.getMessage()));
+            }
+        });
+    }
+
+    /**
+     * 跳转到书签位置
+     * 验证需求：7.4 - 跳转到该书签对应的位置
+     * 
+     * @param bookmark 书签对象
+     */
+    public void jumpToBookmark(Bookmark bookmark) {
+        if (bookmark == null) return;
+        
+        ReaderUiState currentState = _uiState.getValue();
+        
+        // 检查是否在同一章节
+        if (currentState != null && currentState.getCurrentChapter() != null 
+                && currentState.getCurrentChapter().getId() == bookmark.getChapterId()) {
+            // 同一章节，直接设置跳转位置，不需要重新加载章节
+            updateState(state -> state.setJumpToPosition(bookmark.getPosition()));
+        } else {
+            // 不同章节，加载书签对应的章节，并传递跳转位置
+            loadChapter(bookmark.getChapterId(), bookmark.getPosition());
+        }
+    }
+
+    /**
+     * 清除书签添加状态
+     */
+    public void clearBookmarkAddedState() {
+        updateState(state -> state.setBookmarkAdded(false));
+    }
+
+    /**
+     * 清除书签删除状态
+     */
+    public void clearBookmarkDeletedState() {
+        updateState(state -> state.setBookmarkDeleted(false));
+    }
+
+    /**
+     * 清除跳转位置状态
+     */
+    public void clearJumpToPosition() {
+        updateState(state -> state.setJumpToPosition(-1));
     }
 
     @Override

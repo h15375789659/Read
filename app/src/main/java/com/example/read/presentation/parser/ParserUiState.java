@@ -25,6 +25,13 @@ public class ParserUiState {
     private boolean isDownloading;
     private String error;
     private ParseState parseState;
+    
+    // 断点续传相关
+    private Long existingNovelId;           // 已存在的小说ID
+    private String existingNovelTitle;      // 已存在的小说标题
+    private int existingDownloadedCount;    // 已下载章节数
+    private boolean showResumeDialog;       // 是否显示续传对话框
+    private boolean existingNovelComplete;  // 已存在的小说是否已完成下载
 
     public ParserUiState() {
         this.url = "";
@@ -36,6 +43,11 @@ public class ParserUiState {
         this.isDownloading = false;
         this.error = null;
         this.parseState = ParseState.IDLE;
+        this.existingNovelId = null;
+        this.existingNovelTitle = null;
+        this.existingDownloadedCount = 0;
+        this.showResumeDialog = false;
+        this.existingNovelComplete = false;
     }
 
     // 复制构造函数
@@ -52,6 +64,11 @@ public class ParserUiState {
         this.isDownloading = other.isDownloading;
         this.error = other.error;
         this.parseState = other.parseState;
+        this.existingNovelId = other.existingNovelId;
+        this.existingNovelTitle = other.existingNovelTitle;
+        this.existingDownloadedCount = other.existingDownloadedCount;
+        this.showResumeDialog = other.showResumeDialog;
+        this.existingNovelComplete = other.existingNovelComplete;
     }
 
     // Getters
@@ -67,6 +84,11 @@ public class ParserUiState {
     public boolean isDownloading() { return isDownloading; }
     public String getError() { return error; }
     public ParseState getParseState() { return parseState; }
+    public Long getExistingNovelId() { return existingNovelId; }
+    public String getExistingNovelTitle() { return existingNovelTitle; }
+    public int getExistingDownloadedCount() { return existingDownloadedCount; }
+    public boolean isShowResumeDialog() { return showResumeDialog; }
+    public boolean isExistingNovelComplete() { return existingNovelComplete; }
 
     // Setters
     public void setUrl(String url) { this.url = url != null ? url : ""; }
@@ -85,6 +107,11 @@ public class ParserUiState {
     public void setDownloading(boolean downloading) { isDownloading = downloading; }
     public void setError(String error) { this.error = error; }
     public void setParseState(ParseState parseState) { this.parseState = parseState; }
+    public void setExistingNovelId(Long existingNovelId) { this.existingNovelId = existingNovelId; }
+    public void setExistingNovelTitle(String existingNovelTitle) { this.existingNovelTitle = existingNovelTitle; }
+    public void setExistingDownloadedCount(int existingDownloadedCount) { this.existingDownloadedCount = existingDownloadedCount; }
+    public void setShowResumeDialog(boolean showResumeDialog) { this.showResumeDialog = showResumeDialog; }
+    public void setExistingNovelComplete(boolean existingNovelComplete) { this.existingNovelComplete = existingNovelComplete; }
 
     /**
      * 解析状态枚举

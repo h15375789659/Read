@@ -31,12 +31,14 @@ import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 
+import com.bumptech.glide.Glide;
 import com.example.read.R;
 import com.example.read.domain.model.Novel;
 import com.example.read.utils.NavigationHelper;
 import com.google.android.material.bottomsheet.BottomSheetDialog;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
 
+import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -84,6 +86,14 @@ public class BookshelfActivity extends AppCompatActivity {
     private ImageView editCoverImageView; // 编辑对话框中的封面ImageView
     private String selectedCoverPath; // 选中的封面路径
 
+    // 批量操作相关组件
+    private View batchOperationBar;
+    private View batchBottomActions;
+    private TextView tvSelectedCount;
+    private TextView btnSelectAll;
+    private TextView btnBatchDelete;
+    private TextView btnBatchChangeCategory;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -129,6 +139,14 @@ public class BookshelfActivity extends AppCompatActivity {
         novelAdapter = new NovelAdapter();
         recyclerView.setLayoutManager(new LinearLayoutManager(this));
         recyclerView.setAdapter(novelAdapter);
+
+        // 批量操作栏
+        batchOperationBar = findViewById(R.id.batch_operation_bar);
+        batchBottomActions = findViewById(R.id.batch_bottom_actions);
+        tvSelectedCount = findViewById(R.id.tv_selected_count);
+        btnSelectAll = findViewById(R.id.btn_select_all);
+        btnBatchDelete = findViewById(R.id.btn_batch_delete);
+        btnBatchChangeCategory = findViewById(R.id.btn_batch_change_category);
     }
 
     /**
@@ -199,12 +217,12 @@ public class BookshelfActivity extends AppCompatActivity {
             
             selectedCoverPath = coverFile.getAbsolutePath();
             
-            // 更新对话框中的封面预览
+            // 更新对话框中的封面预览（使用 Glide）
             if (editCoverImageView != null) {
-                android.graphics.Bitmap bitmap = android.graphics.BitmapFactory.decodeFile(selectedCoverPath);
-                if (bitmap != null) {
-                    editCoverImageView.setImageBitmap(bitmap);
-                }
+                Glide.with(this)
+                        .load(new File(selectedCoverPath))
+                        .centerCrop()
+                        .into(editCoverImageView);
             }
         } catch (Exception e) {
             Toast.makeText(this, "封面图片加载失败", Toast.LENGTH_SHORT).show();
@@ -272,6 +290,13 @@ public class BookshelfActivity extends AppCompatActivity {
         // 小说长按事件
         novelAdapter.setOnNovelLongClickListener((novel, anchorView) -> 
                 showNovelContextMenu(novel, anchorView));
+
+        // 批量选择状态变化监听
+        novelAdapter.setOnSelectionChangedListener((novelId, isSelected) -> 
+                viewModel.toggleNovelSelection(novelId));
+
+        // 批量操作栏按钮监听
+        setupBatchOperationListeners();
     }
 
     /**
@@ -290,6 +315,9 @@ public class BookshelfActivity extends AppCompatActivity {
                 Toast.makeText(this, state.getError(), Toast.LENGTH_SHORT).show();
                 viewModel.clearError();
             }
+
+            // 更新批量模式UI
+            updateBatchModeUI(state);
         });
 
         // 观察小说列表
@@ -423,13 +451,16 @@ public class BookshelfActivity extends AppCompatActivity {
      */
     private void showMoreMenu() {
         String[] menuItems = {
-                getString(R.string.menu_manage_categories)
+                getString(R.string.menu_manage_categories),
+                getString(R.string.menu_batch_manage)
         };
 
         new AlertDialog.Builder(this)
                 .setItems(menuItems, (dialog, which) -> {
                     if (which == 0) {
                         showManageCategoriesDialog();
+                    } else if (which == 1) {
+                        viewModel.enterBatchMode();
                     }
                 })
                 .show();
@@ -601,8 +632,8 @@ public class BookshelfActivity extends AppCompatActivity {
         // 从网站URL导入
         view.findViewById(R.id.option_from_url).setOnClickListener(v -> {
             dialog.dismiss();
-            // TODO: 跳转到网站解析界面
-            Toast.makeText(this, "网站导入功能即将推出", Toast.LENGTH_SHORT).show();
+            // 跳转到网站解析界面
+            NavigationHelper.navigateToWebParser(this);
         });
 
         dialog.show();
@@ -801,14 +832,14 @@ public class BookshelfActivity extends AppCompatActivity {
         editTitle.setText(novel.getTitle());
         editAuthor.setText(novel.getAuthor());
         
-        // 加载当前封面
+        // 加载当前封面（使用 Glide）
         if (novel.getCoverPath() != null && !novel.getCoverPath().isEmpty()) {
-            java.io.File coverFile = new java.io.File(novel.getCoverPath());
+            File coverFile = new File(novel.getCoverPath());
             if (coverFile.exists()) {
-                android.graphics.Bitmap bitmap = android.graphics.BitmapFactory.decodeFile(novel.getCoverPath());
-                if (bitmap != null) {
-                    editCoverImageView.setImageBitmap(bitmap);
-                }
+                Glide.with(this)
+                        .load(coverFile)
+                        .centerCrop()
+                        .into(editCoverImageView);
             }
         }
         
@@ -869,5 +900,151 @@ public class BookshelfActivity extends AppCompatActivity {
         super.onResume();
         // 从阅读器返回时刷新数据，更新阅读进度显示
         viewModel.refresh();
+    }
+
+    // ==================== 批量管理功能 ====================
+
+    /**
+     * 设置批量操作栏按钮监听器
+     */
+    private void setupBatchOperationListeners() {
+        // 取消按钮
+        ImageButton btnBatchCancel = findViewById(R.id.btn_batch_cancel);
+        if (btnBatchCancel != null) {
+            btnBatchCancel.setOnClickListener(v -> viewModel.exitBatchMode());
+        }
+
+        // 全选按钮
+        if (btnSelectAll != null) {
+            btnSelectAll.setOnClickListener(v -> viewModel.toggleSelectAll());
+        }
+
+        // 删除按钮
+        if (btnBatchDelete != null) {
+            btnBatchDelete.setOnClickListener(v -> showBatchDeleteConfirmDialog());
+        }
+
+        // 修改分类按钮
+        if (btnBatchChangeCategory != null) {
+            btnBatchChangeCategory.setOnClickListener(v -> showBatchChangeCategoryDialog());
+        }
+    }
+
+    /**
+     * 更新批量模式UI
+     */
+    private void updateBatchModeUI(BookshelfUiState state) {
+        boolean isBatchMode = state.isBatchMode();
+        
+        // 更新Adapter的批量模式状态
+        novelAdapter.setBatchMode(isBatchMode);
+        novelAdapter.setSelectedIds(state.getSelectedNovelIds());
+
+        if (isBatchMode) {
+            // 显示批量操作栏，隐藏普通顶部栏
+            topBar.setVisibility(View.GONE);
+            searchBar.setVisibility(View.GONE);
+            if (batchOperationBar != null) {
+                batchOperationBar.setVisibility(View.VISIBLE);
+            }
+            if (batchBottomActions != null) {
+                batchBottomActions.setVisibility(View.VISIBLE);
+            }
+            // 隐藏FAB
+            fabImport.setVisibility(View.GONE);
+
+            // 更新选中数量
+            updateSelectedCountText(state.getSelectedCount());
+            
+            // 更新全选按钮文本
+            updateSelectAllButtonText(state.isAllSelected());
+        } else {
+            // 隐藏批量操作栏，显示普通顶部栏
+            topBar.setVisibility(View.VISIBLE);
+            if (batchOperationBar != null) {
+                batchOperationBar.setVisibility(View.GONE);
+            }
+            if (batchBottomActions != null) {
+                batchBottomActions.setVisibility(View.GONE);
+            }
+            // 显示FAB
+            fabImport.setVisibility(View.VISIBLE);
+        }
+    }
+
+    /**
+     * 更新选中数量文本
+     */
+    private void updateSelectedCountText(int count) {
+        if (tvSelectedCount != null) {
+            tvSelectedCount.setText(getString(R.string.batch_selected_count_format, count));
+        }
+    }
+
+    /**
+     * 更新全选按钮文本
+     */
+    private void updateSelectAllButtonText(boolean isAllSelected) {
+        if (btnSelectAll != null) {
+            btnSelectAll.setText(isAllSelected ? R.string.batch_deselect_all : R.string.batch_select_all);
+        }
+    }
+
+    /**
+     * 显示批量删除确认对话框
+     */
+    private void showBatchDeleteConfirmDialog() {
+        java.util.List<Long> selectedIds = viewModel.getSelectedNovelIds();
+        if (selectedIds.isEmpty()) {
+            Toast.makeText(this, R.string.batch_no_selection, Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        new AlertDialog.Builder(this)
+                .setTitle(R.string.batch_delete_title)
+                .setMessage(getString(R.string.batch_delete_message, selectedIds.size()))
+                .setPositiveButton(R.string.dialog_confirm, (dialog, which) -> {
+                    viewModel.batchDeleteNovels(selectedIds);
+                    Toast.makeText(this, R.string.batch_delete_success, Toast.LENGTH_SHORT).show();
+                })
+                .setNegativeButton(R.string.dialog_cancel, null)
+                .show();
+    }
+
+    /**
+     * 显示批量修改分类对话框
+     */
+    private void showBatchChangeCategoryDialog() {
+        java.util.List<Long> selectedIds = viewModel.getSelectedNovelIds();
+        if (selectedIds.isEmpty()) {
+            Toast.makeText(this, R.string.batch_no_selection, Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        // 获取用户自定义的分类（排除"全部"）
+        java.util.List<String> availableCategories = new java.util.ArrayList<>();
+        for (String category : categories) {
+            if (!category.equals(getString(R.string.category_all))) {
+                availableCategories.add(category);
+            }
+        }
+
+        if (availableCategories.isEmpty()) {
+            Toast.makeText(this, R.string.batch_no_category, Toast.LENGTH_SHORT).show();
+            showAddCategoryDialog();
+            return;
+        }
+
+        String[] items = availableCategories.toArray(new String[0]);
+
+        new AlertDialog.Builder(this)
+                .setTitle(R.string.batch_change_category_title)
+                .setItems(items, (dialog, which) -> {
+                    String newCategory = availableCategories.get(which);
+                    viewModel.batchUpdateCategory(selectedIds, newCategory);
+                    Toast.makeText(this, R.string.batch_change_category_success, Toast.LENGTH_SHORT).show();
+                })
+                .setNegativeButton(R.string.dialog_cancel, null)
+                .show();
     }
 }

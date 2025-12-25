@@ -13,11 +13,16 @@ import android.os.BatteryManager;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
+import android.text.Editable;
 import android.text.TextPaint;
+import android.text.TextWatcher;
 import android.view.GestureDetector;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.animation.AccelerateDecelerateInterpolator;
+import android.view.inputmethod.EditorInfo;
+import android.view.inputmethod.InputMethodManager;
+import android.widget.EditText;
 import android.widget.ImageButton;
 import android.widget.LinearLayout;
 import android.widget.ProgressBar;
@@ -351,10 +356,8 @@ public class ReaderActivity extends AppCompatActivity {
         // 搜索按钮
         btnSearch.setOnClickListener(v -> showSearchDialog());
         
-        // 书签按钮
-        btnBookmark.setOnClickListener(v -> {
-            Toast.makeText(this, R.string.reader_bookmark_added, Toast.LENGTH_SHORT).show();
-        });
+        // 书签按钮 - 显示书签列表对话框
+        btnBookmark.setOnClickListener(v -> showBookmarkListDialog());
         
         // 朗读按钮
         btnTts.setOnClickListener(v -> viewModel.toggleTTS());
@@ -480,6 +483,40 @@ public class ReaderActivity extends AppCompatActivity {
     private void updateUI(ReaderUiState state) {
         // 更新加载状态
         loadingProgress.setVisibility(state.isLoading() ? View.VISIBLE : View.GONE);
+        
+        // 处理书签添加成功
+        if (state.isBookmarkAdded()) {
+            Toast.makeText(this, R.string.bookmark_added, Toast.LENGTH_SHORT).show();
+            viewModel.clearBookmarkAddedState();
+        }
+        
+        // 处理书签删除成功
+        if (state.isBookmarkDeleted()) {
+            Toast.makeText(this, R.string.bookmark_deleted, Toast.LENGTH_SHORT).show();
+            viewModel.clearBookmarkDeletedState();
+        }
+        
+        // 处理书签跳转位置
+        if (state.getJumpToPosition() >= 0) {
+            final int jumpPosition = state.getJumpToPosition();
+            // 先清除跳转位置状态，避免重复处理
+            viewModel.clearJumpToPosition();
+            
+            if (currentPageMode == PageMode.SCROLL) {
+                contentScrollView.post(() -> contentScrollView.scrollTo(0, jumpPosition));
+            } else {
+                // 翻页模式
+                if (isPaginationReady && pageAdapter.getTotalPages() > 0) {
+                    // 分页已完成，直接跳转
+                    int startIndex = pageAdapter.getCurrentChapterStartIndex();
+                    int targetPage = startIndex + Math.min(jumpPosition, pageAdapter.getCurrentChapterPageCount() - 1);
+                    pageViewPager.setCurrentItem(targetPage, false);
+                } else {
+                    // 分页未完成，设置待跳转的页码，在分页完成后处理
+                    pendingPageIndex = jumpPosition;
+                }
+            }
+        }
         
         // 更新翻页模式
         if (state.getPageMode() != currentPageMode) {
@@ -954,20 +991,123 @@ public class ReaderActivity extends AppCompatActivity {
             recyclerView.setLayoutManager(new LinearLayoutManager(this));
             recyclerView.setAdapter(chapterAdapter);
             
+            // 绑定快速滚动条
+            com.example.read.presentation.widget.FastScrollerView fastScroller = 
+                    view.findViewById(R.id.fast_scroller);
+            if (fastScroller != null) {
+                fastScroller.attachToRecyclerView(recyclerView);
+            }
+            
+            // 标题栏和搜索栏
+            LinearLayout titleBar = view.findViewById(R.id.title_bar);
+            LinearLayout searchBar = view.findViewById(R.id.search_bar);
+            ImageButton btnSearchChapter = view.findViewById(R.id.btn_search_chapter);
+            ImageButton btnSearchBack = view.findViewById(R.id.btn_search_back);
+            ImageButton btnClearSearch = view.findViewById(R.id.btn_clear_search);
+            EditText searchEditText = view.findViewById(R.id.search_edit_text);
+            TextView searchResultHint = view.findViewById(R.id.search_result_hint);
             TextView chapterCountText = view.findViewById(R.id.chapter_count_text);
+            
+            // 设置章节数量
             ReaderUiState state = viewModel.getUiState().getValue();
             if (state != null && state.getChapters() != null) {
                 chapterCountText.setText(getString(R.string.reader_chapter_count, state.getChapters().size()));
+                // 设置原始章节列表用于过滤
+                chapterAdapter.setOriginalList(state.getChapters());
             }
+            
+            // 搜索按钮点击 - 显示搜索栏
+            btnSearchChapter.setOnClickListener(v -> {
+                titleBar.setVisibility(View.GONE);
+                searchBar.setVisibility(View.VISIBLE);
+                searchEditText.requestFocus();
+                showKeyboard(searchEditText);
+            });
+            
+            // 搜索返回按钮 - 隐藏搜索栏
+            btnSearchBack.setOnClickListener(v -> {
+                searchBar.setVisibility(View.GONE);
+                titleBar.setVisibility(View.VISIBLE);
+                searchEditText.setText("");
+                searchResultHint.setVisibility(View.GONE);
+                btnClearSearch.setVisibility(View.GONE);
+                chapterAdapter.clearFilter();
+                hideKeyboard(searchEditText);
+            });
+            
+            // 清除搜索按钮
+            btnClearSearch.setOnClickListener(v -> {
+                searchEditText.setText("");
+                searchResultHint.setVisibility(View.GONE);
+                btnClearSearch.setVisibility(View.GONE);
+                chapterAdapter.clearFilter();
+            });
+            
+            // 搜索框文本变化监听
+            searchEditText.addTextChangedListener(new TextWatcher() {
+                @Override
+                public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+
+                @Override
+                public void onTextChanged(CharSequence s, int start, int before, int count) {}
+
+                @Override
+                public void afterTextChanged(Editable s) {
+                    String keyword = s.toString().trim();
+                    if (keyword.isEmpty()) {
+                        btnClearSearch.setVisibility(View.GONE);
+                        searchResultHint.setVisibility(View.GONE);
+                        chapterAdapter.clearFilter();
+                    } else {
+                        btnClearSearch.setVisibility(View.VISIBLE);
+                        int resultCount = chapterAdapter.filter(keyword);
+                        searchResultHint.setVisibility(View.VISIBLE);
+                        if (resultCount > 0) {
+                            searchResultHint.setText(getString(R.string.chapter_search_result, resultCount));
+                        } else {
+                            searchResultHint.setText(R.string.chapter_search_no_result);
+                        }
+                    }
+                }
+            });
+            
+            // 搜索框回车键
+            searchEditText.setOnEditorActionListener((v, actionId, event) -> {
+                if (actionId == EditorInfo.IME_ACTION_SEARCH) {
+                    hideKeyboard(searchEditText);
+                    return true;
+                }
+                return false;
+            });
+            
+            // 对话框关闭时重置搜索状态
+            chapterListDialog.setOnDismissListener(dialog -> {
+                searchBar.setVisibility(View.GONE);
+                titleBar.setVisibility(View.VISIBLE);
+                searchEditText.setText("");
+                searchResultHint.setVisibility(View.GONE);
+                btnClearSearch.setVisibility(View.GONE);
+                chapterAdapter.clearFilter();
+                hideKeyboard(searchEditText);
+            });
         }
         
         ReaderUiState state = viewModel.getUiState().getValue();
         if (state != null && state.getCurrentChapter() != null) {
             chapterAdapter.setCurrentChapterId(state.getCurrentChapter().getId());
             
+            // 更新章节列表数据
+            if (state.getChapters() != null) {
+                chapterAdapter.setOriginalList(state.getChapters());
+                TextView chapterCountText = chapterListDialog.findViewById(R.id.chapter_count_text);
+                if (chapterCountText != null) {
+                    chapterCountText.setText(getString(R.string.reader_chapter_count, state.getChapters().size()));
+                }
+            }
+            
             chapterListDialog.setOnShowListener(dialog -> {
                 RecyclerView recyclerView = chapterListDialog.findViewById(R.id.chapter_list_recycler_view);
-                if (recyclerView != null) {
+                if (recyclerView != null && !chapterAdapter.hasFilter()) {
                     int position = state.getCurrentChapterIndex();
                     recyclerView.scrollToPosition(Math.max(0, position - 3));
                 }
@@ -975,6 +1115,26 @@ public class ReaderActivity extends AppCompatActivity {
         }
         
         chapterListDialog.show();
+    }
+    
+    /**
+     * 显示键盘
+     */
+    private void showKeyboard(View view) {
+        InputMethodManager imm = (InputMethodManager) getSystemService(INPUT_METHOD_SERVICE);
+        if (imm != null) {
+            imm.showSoftInput(view, InputMethodManager.SHOW_IMPLICIT);
+        }
+    }
+    
+    /**
+     * 隐藏键盘
+     */
+    private void hideKeyboard(View view) {
+        InputMethodManager imm = (InputMethodManager) getSystemService(INPUT_METHOD_SERVICE);
+        if (imm != null) {
+            imm.hideSoftInputFromWindow(view.getWindowToken(), 0);
+        }
     }
 
     /**
@@ -1157,6 +1317,81 @@ public class ReaderActivity extends AppCompatActivity {
                 }
             }
         });
+    }
+
+    /**
+     * 显示书签列表对话框
+     * 验证需求：7.3 - 显示书签列表
+     */
+    private void showBookmarkListDialog() {
+        BookmarkListDialog bookmarkDialog = new BookmarkListDialog(this);
+        
+        // 设置书签跳转监听
+        bookmarkDialog.setOnBookmarkJumpListener(bookmark -> {
+            viewModel.jumpToBookmark(bookmark);
+        });
+        
+        // 设置书签删除监听
+        bookmarkDialog.setOnBookmarkDeleteListener(bookmark -> {
+            viewModel.deleteBookmark(bookmark.getId());
+        });
+        
+        // 设置添加书签监听
+        bookmarkDialog.setOnAddBookmarkListener(() -> {
+            showAddBookmarkDialog();
+        });
+        
+        // 观察书签列表
+        viewModel.getBookmarks().observe(this, bookmarks -> {
+            bookmarkDialog.setBookmarks(bookmarks);
+        });
+        
+        bookmarkDialog.show();
+    }
+
+    /**
+     * 显示添加书签对话框
+     * 验证需求：7.1, 7.2 - 添加书签并支持备注
+     */
+    private void showAddBookmarkDialog() {
+        ReaderUiState state = viewModel.getUiState().getValue();
+        if (state == null || state.getCurrentChapter() == null) {
+            Toast.makeText(this, "无法添加书签", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        android.app.AlertDialog.Builder builder = new android.app.AlertDialog.Builder(this);
+        View dialogView = getLayoutInflater().inflate(R.layout.dialog_add_bookmark, null);
+        builder.setView(dialogView);
+
+        TextView tvChapterInfo = dialogView.findViewById(R.id.tv_chapter_info);
+        com.google.android.material.textfield.TextInputEditText etNote = dialogView.findViewById(R.id.et_note);
+        com.google.android.material.button.MaterialButton btnCancel = dialogView.findViewById(R.id.btn_cancel);
+        com.google.android.material.button.MaterialButton btnSave = dialogView.findViewById(R.id.btn_save);
+
+        // 显示当前章节信息
+        String chapterInfo = getString(R.string.bookmark_chapter_info, state.getCurrentChapter().getTitle());
+        tvChapterInfo.setText(chapterInfo);
+
+        android.app.AlertDialog dialog = builder.create();
+
+        btnCancel.setOnClickListener(v -> dialog.dismiss());
+
+        btnSave.setOnClickListener(v -> {
+            String note = etNote.getText() != null ? etNote.getText().toString().trim() : "";
+            int position = 0;
+            if (currentPageMode == PageMode.SCROLL) {
+                position = contentScrollView.getScrollY();
+            } else {
+                int currentItem = pageViewPager.getCurrentItem();
+                int startIndex = pageAdapter.getCurrentChapterStartIndex();
+                position = Math.max(0, currentItem - startIndex);
+            }
+            viewModel.addBookmark(note, position);
+            dialog.dismiss();
+        });
+
+        dialog.show();
     }
 
     @Override

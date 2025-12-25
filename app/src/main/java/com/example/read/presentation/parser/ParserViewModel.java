@@ -248,6 +248,123 @@ public class ParserViewModel extends ViewModel {
             return;
         }
 
+        // 检查是否已存在相同URL的小说
+        final int currentChapterCount = chapters.size();
+        Disposable disposable = webParserRepository.checkExistingNovel(url)
+                .subscribeOn(Schedulers.io())
+                .observeOn(AndroidSchedulers.mainThread())
+                .subscribe(
+                        existingInfo -> {
+                            // novelId == -1 表示不存在
+                            if (existingInfo != null && existingInfo.getNovelId() > 0) {
+                                // 小说已存在，比较已下载章节数和当前解析出的章节数
+                                int downloadedCount = existingInfo.getDownloadedChapters();
+                                boolean isComplete = downloadedCount >= currentChapterCount;
+                                
+                                updateState(state -> {
+                                    state.setExistingNovelId(existingInfo.getNovelId());
+                                    state.setExistingNovelTitle(existingInfo.getTitle());
+                                    state.setExistingDownloadedCount(downloadedCount);
+                                    state.setExistingNovelComplete(isComplete);
+                                    state.setShowResumeDialog(true);
+                                });
+                            } else {
+                                // 不存在，直接开始新下载
+                                doStartDownload(url, rule, chapters);
+                            }
+                        },
+                        error -> {
+                            // 检查失败，直接开始新下载
+                            doStartDownload(url, rule, chapters);
+                        }
+                );
+        disposables.add(disposable);
+    }
+    
+    /**
+     * 继续下载（断点续传）
+     */
+    public void resumeDownload() {
+        ParserUiState currentState = _uiState.getValue();
+        if (currentState == null) return;
+        
+        Long novelId = currentState.getExistingNovelId();
+        String url = currentState.getUrl();
+        ParserRule rule = currentState.getSelectedRule();
+        List<ChapterInfo> chapters = currentState.getChapters();
+        
+        if (novelId == null || url == null || rule == null) {
+            updateState(state -> state.setError("续传参数无效"));
+            return;
+        }
+        
+        // 关闭对话框
+        updateState(state -> state.setShowResumeDialog(false));
+        
+        // 开始续传下载
+        updateState(state -> {
+            state.setDownloading(true);
+            state.setError(null);
+            state.setParseState(ParserUiState.ParseState.DOWNLOADING);
+            state.setDownloadProgress(new ParserUiState.DownloadProgress(
+                    currentState.getExistingDownloadedCount(), 
+                    chapters != null ? chapters.size() : 0, 
+                    ""));
+        });
+        
+        WebParserRepository.ProgressCallback progressCallback = (current, total, currentChapterTitle) -> {
+            updateState(state -> {
+                state.setDownloadProgress(new ParserUiState.DownloadProgress(current, total, currentChapterTitle));
+            });
+        };
+        
+        Disposable disposable = webParserRepository.resumeDownload(novelId, url, rule, progressCallback)
+                .subscribeOn(Schedulers.io())
+                .observeOn(AndroidSchedulers.mainThread())
+                .subscribe(
+                        novel -> {
+                            updateState(state -> {
+                                state.setDownloading(false);
+                                state.setParseState(ParserUiState.ParseState.COMPLETED);
+                            });
+                            onDownloadCompleted(novel);
+                        },
+                        error -> {
+                            updateState(state -> {
+                                state.setDownloading(false);
+                                state.setError("续传下载失败: " + error.getMessage());
+                                state.setParseState(ParserUiState.ParseState.ERROR);
+                            });
+                        }
+                );
+        disposables.add(disposable);
+    }
+    
+    /**
+     * 重新下载（忽略已存在的小说）
+     */
+    public void restartDownload() {
+        ParserUiState currentState = _uiState.getValue();
+        if (currentState == null) return;
+        
+        // 关闭对话框
+        updateState(state -> state.setShowResumeDialog(false));
+        
+        // 开始新下载
+        doStartDownload(currentState.getUrl(), currentState.getSelectedRule(), currentState.getChapters());
+    }
+    
+    /**
+     * 取消续传对话框
+     */
+    public void dismissResumeDialog() {
+        updateState(state -> state.setShowResumeDialog(false));
+    }
+    
+    /**
+     * 执行下载
+     */
+    private void doStartDownload(String url, ParserRule rule, List<ChapterInfo> chapters) {
         // 开始下载
         updateState(state -> {
             state.setDownloading(true);

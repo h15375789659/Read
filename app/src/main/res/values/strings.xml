@@ -45,6 +45,22 @@
     <string name="menu_more">更多</string>
     <string name="menu_set_category">设置分类</string>
     <string name="menu_manage_categories">管理分类</string>
+    <string name="menu_batch_manage">批量管理</string>
+
+    <!-- 批量管理 -->
+    <string name="batch_selected_count">已选择</string>
+    <string name="batch_selected_count_format">已选择 %1$d 本</string>
+    <string name="batch_select_all">全选</string>
+    <string name="batch_deselect_all">取消全选</string>
+    <string name="batch_delete">删除</string>
+    <string name="batch_change_category">修改分类</string>
+    <string name="batch_delete_title">批量删除</string>
+    <string name="batch_delete_message">确定要删除选中的 %1$d 本小说吗？\n此操作将删除小说及其所有章节数据，无法恢复。</string>
+    <string name="batch_delete_success">批量删除成功</string>
+    <string name="batch_change_category_title">批量修改分类</string>
+    <string name="batch_change_category_success">批量修改分类成功</string>
+    <string name="batch_no_selection">请先选择小说</string>
+    <string name="batch_no_category">请先添加分类</string>
 
     <!-- 导入选项 -->
     <string name="import_title">添加小说</string>
@@ -124,6 +140,12 @@
     <string name="reader_chapter_count">共 %1$d 章</string>
     <string name="reader_chapter_progress">%1$d / %2$d</string>
 
+    <!-- 章节搜索 -->
+    <string name="chapter_search_hint">搜索章节（支持拼音）</string>
+    <string name="chapter_search_result">找到 %1$d 个匹配章节</string>
+    <string name="chapter_search_no_result">未找到匹配章节</string>
+    <string name="search_clear">清除搜索</string>
+
     <!-- 翻页模式 -->
     <string name="page_mode_scroll">滚动模式</string>
     <string name="page_mode_page">翻页模式</string>
@@ -137,4 +159,44 @@
     <!-- 设置值显示 -->
     <string name="settings_font_size_value">%1$.0f</string>
     <string name="settings_line_spacing_value">%1$.1f</string>
+
+    <!-- 网站解析界面 -->
+    <string name="web_parser_title">网站导入</string>
+    <string name="web_parser_url_hint">请输入小说网站URL</string>
+    <string name="web_parser_rule_label">选择解析规则</string>
+    <string name="web_parser_parse_btn">解析</string>
+    <string name="web_parser_parsing">正在解析...</string>
+    <string name="web_parser_parsing_meta">正在获取小说信息...</string>
+    <string name="web_parser_parsing_list">正在获取章节列表...</string>
+    <string name="web_parser_novel_info">小说信息</string>
+    <string name="web_parser_chapter_list">章节列表</string>
+    <string name="web_parser_chapter_count">共 %1$d 章</string>
+    <string name="web_parser_download_btn">开始下载</string>
+    <string name="web_parser_downloading">下载中: %1$d/%2$d</string>
+    <string name="web_parser_download_percent">%1$d%%</string>
+    <string name="web_parser_current_chapter">正在下载: %1$s</string>
+    <string name="web_parser_cancel_download">取消下载</string>
+    <string name="web_parser_download_complete">下载完成</string>
+    <string name="web_parser_download_canceled">下载已取消</string>
+    <string name="web_parser_no_rules">暂无解析规则，请先添加</string>
+    <string name="web_parser_invalid_url">请输入有效的URL</string>
+    <string name="web_parser_select_rule">请选择解析规则</string>
+    <string name="web_parser_author">作者：%1$s</string>
+    <string name="web_parser_manage_rules">管理规则</string>
+
+    <!-- 书签功能 -->
+    <string name="bookmark_list_title">书签列表</string>
+    <string name="bookmark_add">添加书签</string>
+    <string name="bookmark_add_title">添加书签</string>
+    <string name="bookmark_delete">删除书签</string>
+    <string name="bookmark_note_hint">添加备注（可选）</string>
+    <string name="bookmark_empty">暂无书签\n点击右上角添加</string>
+    <string name="bookmark_added">书签已添加</string>
+    <string name="bookmark_deleted">书签已删除</string>
+    <string name="bookmark_chapter_info">当前章节：%1$s</string>
+    <string name="bookmark_page_info">第 %1$d 页</string>
+    <string name="bookmark_delete_confirm">确定要删除这个书签吗？</string>
+    <string name="cancel">取消</string>
+    <string name="save">保存</string>
+    <string name="confirm">确定</string>
 </resources>

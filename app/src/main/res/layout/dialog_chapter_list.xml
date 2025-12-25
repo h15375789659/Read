@@ -1,50 +1,145 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:orientation="vertical"
     android:background="@color/surface">
 
-    <!-- 标题栏 -->
     <LinearLayout
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:gravity="center_vertical"
-        android:orientation="horizontal"
-        android:padding="16dp">
+        android:layout_height="match_parent"
+        android:orientation="vertical">
 
-        <TextView
-            android:layout_width="0dp"
+        <!-- 标题栏 -->
+        <LinearLayout
+            android:id="@+id/title_bar"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="@string/reader_chapter_list"
-            android:textColor="@color/text_primary"
-            android:textSize="18sp"
-            android:textStyle="bold" />
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:padding="16dp">
 
-        <TextView
-            android:id="@+id/chapter_count_text"
-            android:layout_width="wrap_content"
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="@string/reader_chapter_list"
+                android:textColor="@color/text_primary"
+                android:textSize="18sp"
+                android:textStyle="bold" />
+
+            <!-- 搜索按钮 -->
+            <ImageButton
+                android:id="@+id/btn_search_chapter"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:layout_marginEnd="8dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="@string/chapter_search_hint"
+                android:src="@drawable/ic_search"
+                app:tint="@color/text_secondary" />
+
+            <TextView
+                android:id="@+id/chapter_count_text"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textColor="@color/text_secondary"
+                android:textSize="14sp"
+                tools:text="共100章" />
+
+        </LinearLayout>
+
+        <!-- 搜索栏（默认隐藏） -->
+        <LinearLayout
+            android:id="@+id/search_bar"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:paddingHorizontal="16dp"
+            android:paddingVertical="8dp"
+            android:visibility="gone">
+
+            <ImageButton
+                android:id="@+id/btn_search_back"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="@string/dialog_cancel"
+                android:src="@drawable/ic_arrow_back"
+                app:tint="@color/text_secondary" />
+
+            <EditText
+                android:id="@+id/search_edit_text"
+                android:layout_width="0dp"
+                android:layout_height="40dp"
+                android:layout_weight="1"
+                android:layout_marginStart="8dp"
+                android:background="@drawable/bg_search_input"
+                android:hint="@string/chapter_search_hint"
+                android:imeOptions="actionSearch"
+                android:inputType="text"
+                android:paddingHorizontal="12dp"
+                android:singleLine="true"
+                android:textColor="@color/text_primary"
+                android:textColorHint="@color/text_hint"
+                android:textSize="14sp" />
+
+            <ImageButton
+                android:id="@+id/btn_clear_search"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:layout_marginStart="4dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="@string/search_clear"
+                android:src="@drawable/ic_close"
+                android:visibility="gone"
+                app:tint="@color/text_secondary" />
+
+        </LinearLayout>
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:background="@color/progress_background" />
+
+        <!-- 搜索结果提示 -->
+        <TextView
+            android:id="@+id/search_result_hint"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:paddingHorizontal="16dp"
+            android:paddingVertical="8dp"
             android:textColor="@color/text_secondary"
-            android:textSize="14sp"
-            tools:text="共100章" />
+            android:textSize="12sp"
+            android:visibility="gone"
+            tools:text="找到 10 个匹配章节" />
+
+        <!-- 章节列表容器 -->
+        <FrameLayout
+            android:layout_width="match_parent"
+            android:layout_height="match_parent">
+
+            <!-- 章节列表 -->
+            <androidx.recyclerview.widget.RecyclerView
+                android:id="@+id/chapter_list_recycler_view"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:clipToPadding="false"
+                android:padding="8dp"
+                android:paddingEnd="24dp"
+                tools:listitem="@layout/item_chapter" />
+
+            <!-- 快速滚动条 -->
+            <com.example.read.presentation.widget.FastScrollerView
+                android:id="@+id/fast_scroller"
+                android:layout_width="32dp"
+                android:layout_height="match_parent"
+                android:layout_gravity="end" />
+
+        </FrameLayout>
 
     </LinearLayout>
 
-    <View
-        android:layout_width="match_parent"
-        android:layout_height="1dp"
-        android:background="@color/progress_background" />
-
-    <!-- 章节列表 -->
-    <androidx.recyclerview.widget.RecyclerView
-        android:id="@+id/chapter_list_recycler_view"
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:clipToPadding="false"
-        android:padding="8dp"
-        tools:listitem="@layout/item_chapter" />
-
-</LinearLayout>
+</FrameLayout>
