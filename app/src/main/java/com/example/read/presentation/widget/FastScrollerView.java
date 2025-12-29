@@ -32,6 +32,10 @@ public class FastScrollerView extends FrameLayout {
     private float trackHeight = 0;
     private int totalItemCount = 0;
     
+    // 拖动后的冷却时间，防止 onScrolled 回调覆盖滑块位置
+    private long lastDragEndTime = 0;
+    private static final long DRAG_COOLDOWN_MS = 300;
+    
     // 自动隐藏相关
     private ObjectAnimator hideAnimator;
     private static final int AUTO_HIDE_DELAY = 1500;
@@ -40,6 +44,9 @@ public class FastScrollerView extends FrameLayout {
     // 监听器引用（用于解绑）
     private RecyclerView.OnScrollListener scrollListener;
     private RecyclerView.AdapterDataObserver dataObserver;
+    
+    // 延迟更新滑块位置的 Runnable
+    private final Runnable updateThumbRunnable = this::updateThumbPosition;
     
     private final Runnable hideRunnable = () -> {
         if (!isDragging) {
@@ -99,6 +106,16 @@ public class FastScrollerView extends FrameLayout {
         scrollListener = new RecyclerView.OnScrollListener() {
             @Override
             public void onScrolled(@NonNull RecyclerView recyclerView, int dx, int dy) {
+                // 如果正在拖动或刚结束拖动，不更新滑块位置（防止覆盖用户拖动的位置）
+                if (isDragging) {
+                    return;
+                }
+                
+                // 拖动结束后的冷却期内，不更新滑块位置
+                if (System.currentTimeMillis() - lastDragEndTime < DRAG_COOLDOWN_MS) {
+                    return;
+                }
+                
                 updateThumbPosition();
                 showWithAutoHide();
             }
@@ -110,21 +127,30 @@ public class FastScrollerView extends FrameLayout {
             dataObserver = new RecyclerView.AdapterDataObserver() {
                 @Override
                 public void onChanged() {
-                    updateThumbPosition();
+                    // 延迟更新，等待布局完成
+                    postDelayedUpdateThumb();
                 }
                 
                 @Override
                 public void onItemRangeInserted(int positionStart, int itemCount) {
-                    updateThumbPosition();
+                    postDelayedUpdateThumb();
                 }
                 
                 @Override
                 public void onItemRangeRemoved(int positionStart, int itemCount) {
-                    updateThumbPosition();
+                    postDelayedUpdateThumb();
                 }
             };
             recyclerView.getAdapter().registerAdapterDataObserver(dataObserver);
         }
+    }
+    
+    /**
+     * 延迟更新滑块位置（等待布局完成）
+     */
+    private void postDelayedUpdateThumb() {
+        removeCallbacks(updateThumbRunnable);
+        postDelayed(updateThumbRunnable, 100);
     }
     
     /**
@@ -153,6 +179,7 @@ public class FastScrollerView extends FrameLayout {
         
         // 取消所有待执行的回调
         removeCallbacks(hideRunnable);
+        removeCallbacks(updateThumbRunnable);
         if (hideAnimator != null) {
             hideAnimator.cancel();
             hideAnimator = null;
@@ -206,6 +233,7 @@ public class FastScrollerView extends FrameLayout {
             case MotionEvent.ACTION_CANCEL:
                 if (isDragging) {
                     isDragging = false;
+                    lastDragEndTime = System.currentTimeMillis(); // 记录拖动结束时间
                     scheduleAutoHide();
                     return true;
                 }
@@ -267,10 +295,28 @@ public class FastScrollerView extends FrameLayout {
         setVisibility(VISIBLE);
         
         int firstVisiblePosition = layoutManager.findFirstVisibleItemPosition();
+        int lastVisiblePosition = layoutManager.findLastVisibleItemPosition();
+        
         if (firstVisiblePosition == RecyclerView.NO_POSITION) return;
         
-        // 计算滚动比例
-        float ratio = (float) firstVisiblePosition / (totalItemCount - 1);
+        // 使用更精确的滚动比例计算
+        // 考虑第一个可见项的偏移量
+        View firstChild = layoutManager.findViewByPosition(firstVisiblePosition);
+        float firstItemOffset = 0;
+        if (firstChild != null) {
+            int itemHeight = firstChild.getHeight();
+            if (itemHeight > 0) {
+                // 计算第一个可见项被滚动出去的比例
+                firstItemOffset = (float) (-firstChild.getTop()) / itemHeight;
+                firstItemOffset = Math.max(0, Math.min(1, firstItemOffset));
+            }
+        }
+        
+        // 计算精确的滚动位置
+        float scrollPosition = firstVisiblePosition + firstItemOffset;
+        float ratio = scrollPosition / Math.max(1, totalItemCount - 1);
+        ratio = Math.max(0, Math.min(1, ratio)); // 确保在 0-1 范围内
+        
         updateThumbPositionDirect(ratio);
     }
 

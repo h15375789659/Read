@@ -18,16 +18,26 @@ public class TextPaginator {
      * 分页结果
      */
     public static class PageInfo {
-        private final String content;      // 页面内容
-        private final int startIndex;      // 在原文中的起始位置
-        private final int endIndex;        // 在原文中的结束位置
-        private final int pageNumber;      // 页码（从1开始）
-        private final boolean isFirstPage; // 是否是章节第一页
+        private final String content;           // 页面内容（带缩进）
+        private final int startIndex;           // 在缩进后文本中的起始位置
+        private final int endIndex;             // 在缩进后文本中的结束位置
+        private final int originalStartIndex;   // 在原始文本中的起始位置（用于TTS高亮）
+        private final int originalEndIndex;     // 在原始文本中的结束位置（用于TTS高亮）
+        private final int pageNumber;           // 页码（从1开始）
+        private final boolean isFirstPage;      // 是否是章节第一页
 
         public PageInfo(String content, int startIndex, int endIndex, int pageNumber, boolean isFirstPage) {
+            this(content, startIndex, endIndex, startIndex, endIndex, pageNumber, isFirstPage);
+        }
+        
+        public PageInfo(String content, int startIndex, int endIndex, 
+                       int originalStartIndex, int originalEndIndex, 
+                       int pageNumber, boolean isFirstPage) {
             this.content = content;
             this.startIndex = startIndex;
             this.endIndex = endIndex;
+            this.originalStartIndex = originalStartIndex;
+            this.originalEndIndex = originalEndIndex;
             this.pageNumber = pageNumber;
             this.isFirstPage = isFirstPage;
         }
@@ -35,6 +45,10 @@ public class TextPaginator {
         public String getContent() { return content; }
         public int getStartIndex() { return startIndex; }
         public int getEndIndex() { return endIndex; }
+        /** 获取在原始文本中的起始位置（用于TTS高亮匹配） */
+        public int getOriginalStartIndex() { return originalStartIndex; }
+        /** 获取在原始文本中的结束位置（用于TTS高亮匹配） */
+        public int getOriginalEndIndex() { return originalEndIndex; }
         public int getPageNumber() { return pageNumber; }
         public boolean isFirstPage() { return isFirstPage; }
     }
@@ -59,8 +73,10 @@ public class TextPaginator {
             return pages;
         }
         
-        // 先为文本添加首行缩进
-        String indentedText = addFirstLineIndent(text);
+        // 先为文本添加首行缩进，同时构建位置映射
+        IndentResult indentResult = addFirstLineIndentWithMapping(text);
+        String indentedText = indentResult.indentedText;
+        int[] indentedToOriginal = indentResult.indentedToOriginal;
 
         int textLength = indentedText.length();
         int startIndex = 0;
@@ -77,8 +93,14 @@ public class TextPaginator {
             // 提取页面内容
             String pageContent = indentedText.substring(startIndex, endIndex);
             
-            // 创建页面信息
-            pages.add(new PageInfo(pageContent, startIndex, endIndex, pageNumber, isFirstPage));
+            // 计算原始文本中的位置
+            int originalStartIndex = indentedToOriginal[startIndex];
+            int originalEndIndex = endIndex < indentedToOriginal.length ? 
+                    indentedToOriginal[endIndex] : text.length();
+            
+            // 创建页面信息（包含原始位置）
+            pages.add(new PageInfo(pageContent, startIndex, endIndex, 
+                    originalStartIndex, originalEndIndex, pageNumber, isFirstPage));
             
             // 移动到下一页
             startIndex = endIndex;
@@ -90,38 +112,115 @@ public class TextPaginator {
     }
     
     /**
-     * 为文本添加首行缩进
-     * 每个段落的首行缩进两个中文字符宽度
+     * 缩进结果，包含缩进后的文本和位置映射
      */
-    private static String addFirstLineIndent(String text) {
+    private static class IndentResult {
+        String indentedText;
+        int[] indentedToOriginal; // 缩进后位置 -> 原始位置的映射
+        
+        IndentResult(String indentedText, int[] indentedToOriginal) {
+            this.indentedText = indentedText;
+            this.indentedToOriginal = indentedToOriginal;
+        }
+    }
+    
+    /**
+     * 为文本添加首行缩进，同时构建位置映射
+     * 每个段落的首行缩进两个中文字符宽度
+     * 
+     * 优化版本：使用 int[] 数组预分配，避免 ArrayList 的装箱开销
+     * 
+     * @return IndentResult 包含缩进后文本和位置映射
+     */
+    private static IndentResult addFirstLineIndentWithMapping(String text) {
         if (text == null || text.isEmpty()) {
-            return text;
+            return new IndentResult(text, new int[0]);
         }
         
         // 使用全角空格（\u3000）来实现精确的两字符缩进
         String indent = "\u3000\u3000"; // 两个全角空格
+        int indentLength = indent.length();
         
-        StringBuilder result = new StringBuilder();
-        String[] lines = text.split("\n", -1);
+        // 预估结果大小：原文长度 + 每行可能的缩进（假设平均每50字符一行）
+        int estimatedLines = text.length() / 50 + 1;
+        int estimatedSize = text.length() + estimatedLines * indentLength;
         
-        for (int i = 0; i < lines.length; i++) {
-            String line = lines[i];
-            // 如果行不为空且不是以空格开头，添加缩进
-            if (!line.isEmpty() && !line.startsWith(" ") && !line.startsWith("\u3000")) {
-                result.append(indent);
-            }
-            result.append(line);
-            if (i < lines.length - 1) {
-                result.append("\n");
+        StringBuilder result = new StringBuilder(estimatedSize);
+        int[] mapping = new int[estimatedSize + 100]; // 预分配映射数组
+        int mappingIndex = 0;
+        
+        int textLength = text.length();
+        int originalIndex = 0;
+        int lineStart = 0;
+        
+        // 遍历文本，找到每行的开始和结束
+        for (int i = 0; i <= textLength; i++) {
+            boolean isEnd = (i == textLength);
+            boolean isNewline = !isEnd && text.charAt(i) == '\n';
+            
+            if (isNewline || isEnd) {
+                // 处理当前行 [lineStart, i)
+                String line = text.substring(lineStart, i);
+                
+                // 如果行不为空且不是以空格开头，添加缩进
+                if (!line.isEmpty() && !line.startsWith(" ") && !line.startsWith("\u3000")) {
+                    // 确保映射数组足够大
+                    if (mappingIndex + indentLength + line.length() + 1 >= mapping.length) {
+                        int[] newMapping = new int[mapping.length * 2];
+                        System.arraycopy(mapping, 0, newMapping, 0, mappingIndex);
+                        mapping = newMapping;
+                    }
+                    
+                    result.append(indent);
+                    // 缩进字符映射到当前原始位置（段落开始）
+                    for (int j = 0; j < indentLength; j++) {
+                        mapping[mappingIndex++] = originalIndex;
+                    }
+                }
+                
+                // 确保映射数组足够大
+                if (mappingIndex + line.length() + 1 >= mapping.length) {
+                    int[] newMapping = new int[mapping.length * 2];
+                    System.arraycopy(mapping, 0, newMapping, 0, mappingIndex);
+                    mapping = newMapping;
+                }
+                
+                // 添加行内容
+                result.append(line);
+                for (int j = 0; j < line.length(); j++) {
+                    mapping[mappingIndex++] = originalIndex + j;
+                }
+                originalIndex += line.length();
+                
+                // 添加换行符（如果不是最后）
+                if (isNewline) {
+                    result.append('\n');
+                    mapping[mappingIndex++] = originalIndex;
+                    originalIndex++; // 跳过原始文本中的换行符
+                }
+                
+                lineStart = i + 1;
             }
         }
         
-        return result.toString();
+        // 裁剪映射数组到实际大小
+        int[] finalMapping = new int[mappingIndex];
+        System.arraycopy(mapping, 0, finalMapping, 0, mappingIndex);
+        
+        return new IndentResult(result.toString(), finalMapping);
+    }
+    
+    /**
+     * 为文本添加首行缩进（保留旧方法用于兼容）
+     * 每个段落的首行缩进两个中文字符宽度
+     */
+    private static String addFirstLineIndent(String text) {
+        return addFirstLineIndentWithMapping(text).indentedText;
     }
 
     /**
      * 计算当前页的结束位置
-     * 使用二分查找找到能够填满页面的最大文本量
+     * 优化版本：使用估算 + 线性调整，减少 StaticLayout 创建次数
      */
     private static int calculatePageEnd(String text, int startIndex, TextPaint textPaint,
             int width, int height, float lineSpacing) {
@@ -133,42 +232,105 @@ public class TextPaginator {
             return textLength;
         }
         
-        // 先检查剩余所有文本是否能放下
-        String remainingText = text.substring(startIndex);
-        StaticLayout fullLayout = createLayout(remainingText, textPaint, width, lineSpacing);
-        if (fullLayout.getHeight() <= height) {
-            return textLength;
-        }
+        // 计算单行高度和每行大约能放多少字符
+        float charWidth = textPaint.measureText("测");
+        int charsPerLine = Math.max(1, (int) (width / charWidth));
         
-        // 计算单行高度（用于更精确的估算）
+        // 使用 StaticLayout 计算单行实际高度
         StaticLayout singleLineLayout = createLayout("测", textPaint, width, lineSpacing);
         int lineHeight = singleLineLayout.getHeight();
         
-        // 估算每页大约能放多少字符
-        int estimatedCharsPerPage = (int) ((height / (float) lineHeight) * (width / textPaint.getTextSize()) * 1.5f);
+        // 估算每页能放多少行和字符
+        int linesPerPage = Math.max(1, height / lineHeight);
+        int estimatedCharsPerPage = charsPerLine * linesPerPage;
         
-        // 二分查找最佳结束位置
-        int low = startIndex + 1;  // 至少包含一个字符
-        int high = Math.min(textLength, startIndex + estimatedCharsPerPage * 2);  // 限制搜索范围
-        int result = startIndex + 1;  // 至少显示一个字符
-
-        while (low <= high) {
-            int mid = (low + high) / 2;
+        // 剩余文本长度
+        int remainingLength = textLength - startIndex;
+        
+        // 如果剩余文本预估能放下，直接验证
+        if (remainingLength <= estimatedCharsPerPage) {
+            String remainingText = text.substring(startIndex);
+            StaticLayout fullLayout = createLayout(remainingText, textPaint, width, lineSpacing);
+            if (fullLayout.getHeight() <= height) {
+                return textLength;
+            }
+        }
+        
+        // 使用估算值作为起点，然后线性调整
+        int estimatedEnd = Math.min(textLength, startIndex + estimatedCharsPerPage);
+        
+        // 先测试估算位置
+        String testText = text.substring(startIndex, estimatedEnd);
+        StaticLayout layout = createLayout(testText, textPaint, width, lineSpacing);
+        int layoutHeight = layout.getHeight();
+        
+        if (layoutHeight <= height) {
+            // 估算偏小，向后扩展（每次增加 10% 的字符）
+            int step = Math.max(10, estimatedCharsPerPage / 10);
+            int lastGoodEnd = estimatedEnd;
             
+            while (estimatedEnd < textLength) {
+                estimatedEnd = Math.min(textLength, estimatedEnd + step);
+                testText = text.substring(startIndex, estimatedEnd);
+                layout = createLayout(testText, textPaint, width, lineSpacing);
+                
+                if (layout.getHeight() > height) {
+                    // 超出了，在 lastGoodEnd 和 estimatedEnd 之间二分查找
+                    return binarySearchEnd(text, startIndex, lastGoodEnd, estimatedEnd, textPaint, width, height, lineSpacing);
+                }
+                lastGoodEnd = estimatedEnd;
+            }
+            return textLength;
+        } else {
+            // 估算偏大，向前收缩（每次减少 10% 的字符）
+            int step = Math.max(10, estimatedCharsPerPage / 10);
+            int lastBadEnd = estimatedEnd;
+            
+            while (estimatedEnd > startIndex + 1) {
+                estimatedEnd = Math.max(startIndex + 1, estimatedEnd - step);
+                testText = text.substring(startIndex, estimatedEnd);
+                layout = createLayout(testText, textPaint, width, lineSpacing);
+                
+                if (layout.getHeight() <= height) {
+                    // 找到了合适的位置，在 estimatedEnd 和 lastBadEnd 之间二分查找
+                    return binarySearchEnd(text, startIndex, estimatedEnd, lastBadEnd, textPaint, width, height, lineSpacing);
+                }
+                lastBadEnd = estimatedEnd;
+            }
+            return startIndex + 1; // 至少返回一个字符
+        }
+    }
+    
+    /**
+     * 在已知范围内二分查找最佳结束位置
+     * @param goodEnd 已知能放下的位置
+     * @param badEnd 已知放不下的位置
+     */
+    private static int binarySearchEnd(String text, int startIndex, int goodEnd, int badEnd,
+            TextPaint textPaint, int width, int height, float lineSpacing) {
+        
+        int low = goodEnd;
+        int high = badEnd;
+        int result = goodEnd;
+        
+        // 限制二分查找次数，避免过多计算
+        int maxIterations = 8;
+        int iterations = 0;
+        
+        while (low < high - 1 && iterations < maxIterations) {
+            int mid = (low + high) / 2;
             String testText = text.substring(startIndex, mid);
             StaticLayout layout = createLayout(testText, textPaint, width, lineSpacing);
             
-            // 获取实际内容高度（不包括最后一行的额外行间距）
-            int layoutHeight = layout.getHeight();
-            
-            if (layoutHeight <= height) {
+            if (layout.getHeight() <= height) {
                 result = mid;
-                low = mid + 1;
+                low = mid;
             } else {
-                high = mid - 1;
+                high = mid;
             }
+            iterations++;
         }
-
+        
         return result;
     }
 

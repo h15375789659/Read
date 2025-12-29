@@ -22,8 +22,8 @@ import androidx.recyclerview.widget.RecyclerView;
 
 import com.example.read.R;
 import com.example.read.domain.model.SearchResult;
-import com.google.android.material.button.MaterialButton;
 
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -42,11 +42,6 @@ public class SearchDialog extends Dialog {
     private LinearLayout emptyState;
     private TextView emptyStateText;
     private ProgressBar loadingProgress;
-    private LinearLayout navigationBar;
-    private ImageButton btnPreviousResult;
-    private TextView currentResultPosition;
-    private ImageButton btnNextResult;
-    private MaterialButton btnReturnPosition;
 
     // 适配器
     private SearchResultAdapter adapter;
@@ -54,9 +49,10 @@ public class SearchDialog extends Dialog {
     // 回调接口
     private OnSearchListener searchListener;
 
-    // 当前状态
+    // 当前状态（由外部设置，不在内部维护）
     private int currentIndex = -1;
     private int totalResults = 0;
+    private List<SearchResult> currentResults = null;
 
     public SearchDialog(@NonNull Context context) {
         super(context, android.R.style.Theme_Material_Light_NoActionBar);
@@ -93,11 +89,6 @@ public class SearchDialog extends Dialog {
         emptyState = findViewById(R.id.empty_state);
         emptyStateText = findViewById(R.id.empty_state_text);
         loadingProgress = findViewById(R.id.loading_progress);
-        navigationBar = findViewById(R.id.navigation_bar);
-        btnPreviousResult = findViewById(R.id.btn_previous_result);
-        currentResultPosition = findViewById(R.id.current_result_position);
-        btnNextResult = findViewById(R.id.btn_next_result);
-        btnReturnPosition = findViewById(R.id.btn_return_position);
 
         // 设置RecyclerView
         adapter = new SearchResultAdapter();
@@ -113,7 +104,6 @@ public class SearchDialog extends Dialog {
         btnBack.setOnClickListener(v -> dismiss());
 
         // 搜索按钮
-        // 验证需求：9.1 - 显示搜索输入框
         btnSearch.setOnClickListener(v -> performSearch());
 
         // 搜索输入框回车键
@@ -142,60 +132,18 @@ public class SearchDialog extends Dialog {
             }
         });
 
-        // 搜索结果点击
-        // 验证需求：9.4 - 点击搜索结果条目跳转到该关键词所在位置
+        // 搜索结果点击 - 点击后关闭对话框，跳转到阅读界面
         adapter.setOnSearchResultClickListener((result, position) -> {
-            currentIndex = position;
-            updateNavigationState();
-            
             if (searchListener != null) {
                 searchListener.onSearchResultClick(result, position);
             }
-        });
-
-        // 上一个结果
-        // 验证需求：9.7 - 支持上一个结果的快速导航
-        btnPreviousResult.setOnClickListener(v -> {
-            if (currentIndex > 0) {
-                currentIndex--;
-                adapter.setSelectedPosition(currentIndex);
-                scrollToPosition(currentIndex);
-                updateNavigationState();
-                
-                if (searchListener != null) {
-                    searchListener.onNavigateToPrevious();
-                }
-            }
-        });
-
-        // 下一个结果
-        // 验证需求：9.7 - 支持下一个结果的快速导航
-        btnNextResult.setOnClickListener(v -> {
-            if (currentIndex < totalResults - 1) {
-                currentIndex++;
-                adapter.setSelectedPosition(currentIndex);
-                scrollToPosition(currentIndex);
-                updateNavigationState();
-                
-                if (searchListener != null) {
-                    searchListener.onNavigateToNext();
-                }
-            }
-        });
-
-        // 返回原位置
-        // 验证需求：9.5 - 点击返回恢复到搜索前的原始阅读进度
-        btnReturnPosition.setOnClickListener(v -> {
-            if (searchListener != null) {
-                searchListener.onReturnToOriginalPosition();
-            }
+            // 关闭对话框，让悬浮导航栏在阅读界面显示
             dismiss();
         });
     }
 
     /**
      * 执行搜索
-     * 验证需求：9.2 - 在当前小说的所有章节中查找该关键词
      */
     private void performSearch() {
         String keyword = searchInput.getText().toString().trim();
@@ -224,10 +172,10 @@ public class SearchDialog extends Dialog {
         emptyState.setVisibility(View.VISIBLE);
         emptyStateText.setText(R.string.search_empty_hint);
         loadingProgress.setVisibility(View.GONE);
-        navigationBar.setVisibility(View.GONE);
         
         currentIndex = -1;
         totalResults = 0;
+        currentResults = null;
     }
 
     /**
@@ -238,12 +186,10 @@ public class SearchDialog extends Dialog {
         searchResultsRecyclerView.setVisibility(View.GONE);
         emptyState.setVisibility(View.GONE);
         loadingProgress.setVisibility(View.VISIBLE);
-        navigationBar.setVisibility(View.GONE);
     }
 
     /**
      * 显示搜索结果
-     * 验证需求：9.3 - 显示包含该关键词的所有位置列表
      */
     public void showSearchResults(List<SearchResult> results) {
         loadingProgress.setVisibility(View.GONE);
@@ -253,8 +199,8 @@ public class SearchDialog extends Dialog {
             return;
         }
 
-        totalResults = results.size();
-        currentIndex = 0;
+        this.currentResults = results;
+        this.totalResults = results.size();
 
         // 显示结果数量
         searchResultCount.setVisibility(View.VISIBLE);
@@ -263,45 +209,25 @@ public class SearchDialog extends Dialog {
         // 显示结果列表
         searchResultsRecyclerView.setVisibility(View.VISIBLE);
         emptyState.setVisibility(View.GONE);
-        adapter.submitList(results);
-        adapter.setSelectedPosition(0);
-
-        // 显示导航栏
-        navigationBar.setVisibility(View.VISIBLE);
-        updateNavigationState();
+        
+        // 先提交 null 清空列表，再提交新列表，强制刷新
+        // 这是因为 ListAdapter 的 DiffUtil 可能认为新旧列表相同而不更新
+        adapter.submitList(null);
+        adapter.submitList(new ArrayList<>(results));
     }
 
     /**
      * 显示无结果状态
-     * 验证需求：9.6 - 显示"未找到相关内容"的提示信息
      */
     private void showNoResults() {
         searchResultCount.setVisibility(View.GONE);
         searchResultsRecyclerView.setVisibility(View.GONE);
         emptyState.setVisibility(View.VISIBLE);
         emptyStateText.setText(R.string.search_no_results);
-        navigationBar.setVisibility(View.GONE);
         
         currentIndex = -1;
         totalResults = 0;
-    }
-
-    /**
-     * 更新导航状态
-     */
-    private void updateNavigationState() {
-        // 更新位置显示
-        if (totalResults > 0) {
-            currentResultPosition.setText(
-                    getContext().getString(R.string.search_position, currentIndex + 1, totalResults));
-        }
-
-        // 更新按钮状态
-        btnPreviousResult.setEnabled(currentIndex > 0);
-        btnPreviousResult.setAlpha(currentIndex > 0 ? 1.0f : 0.3f);
-        
-        btnNextResult.setEnabled(currentIndex < totalResults - 1);
-        btnNextResult.setAlpha(currentIndex < totalResults - 1 ? 1.0f : 0.3f);
+        currentResults = null;
     }
 
     /**
@@ -332,12 +258,12 @@ public class SearchDialog extends Dialog {
     }
 
     /**
-     * 设置当前搜索索引
+     * 设置当前搜索索引（由外部ViewModel状态驱动）
      */
     public void setCurrentIndex(int index) {
         this.currentIndex = index;
         adapter.setSelectedPosition(index);
-        updateNavigationState();
+        scrollToPosition(index);
     }
 
     /**
@@ -345,6 +271,13 @@ public class SearchDialog extends Dialog {
      */
     public int getCurrentIndex() {
         return currentIndex;
+    }
+
+    /**
+     * 获取总结果数
+     */
+    public int getTotalResults() {
+        return totalResults;
     }
 
     @Override
@@ -359,37 +292,17 @@ public class SearchDialog extends Dialog {
     }
 
     /**
-     * 搜索监听器接口
+     * 搜索监听器接口（简化版，移除导航回调）
      */
     public interface OnSearchListener {
         /**
          * 执行搜索
-         * 验证需求：9.2
          */
         void onSearch(String keyword);
 
         /**
          * 点击搜索结果
-         * 验证需求：9.4
          */
         void onSearchResultClick(SearchResult result, int position);
-
-        /**
-         * 导航到上一个结果
-         * 验证需求：9.7
-         */
-        void onNavigateToPrevious();
-
-        /**
-         * 导航到下一个结果
-         * 验证需求：9.7
-         */
-        void onNavigateToNext();
-
-        /**
-         * 返回原位置
-         * 验证需求：9.5
-         */
-        void onReturnToOriginalPosition();
     }
 }

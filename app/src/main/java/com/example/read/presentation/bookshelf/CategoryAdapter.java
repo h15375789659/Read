@@ -19,6 +19,7 @@ import com.example.read.R;
 public class CategoryAdapter extends ListAdapter<String, CategoryAdapter.CategoryViewHolder> {
 
     private OnCategoryDeleteListener deleteListener;
+    private OnCategoryEditListener editListener;
 
     public CategoryAdapter() {
         super(DIFF_CALLBACK);
@@ -43,6 +44,13 @@ public class CategoryAdapter extends ListAdapter<String, CategoryAdapter.Categor
         this.deleteListener = listener;
     }
 
+    /**
+     * 设置编辑监听器
+     */
+    public void setOnCategoryEditListener(OnCategoryEditListener listener) {
+        this.editListener = listener;
+    }
+
     @NonNull
     @Override
     public CategoryViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
@@ -62,16 +70,25 @@ public class CategoryAdapter extends ListAdapter<String, CategoryAdapter.Categor
      */
     class CategoryViewHolder extends RecyclerView.ViewHolder {
         private final TextView categoryName;
+        private final ImageButton btnEdit;
         private final ImageButton btnDelete;
 
         CategoryViewHolder(@NonNull View itemView) {
             super(itemView);
             categoryName = itemView.findViewById(R.id.category_name);
+            btnEdit = itemView.findViewById(R.id.btn_edit);
             btnDelete = itemView.findViewById(R.id.btn_delete);
         }
 
         void bind(String category) {
             categoryName.setText(category);
+            
+            btnEdit.setOnClickListener(v -> {
+                if (editListener != null) {
+                    editListener.onEdit(category);
+                }
+            });
+            
             btnDelete.setOnClickListener(v -> {
                 if (deleteListener != null) {
                     deleteListener.onDelete(category);
@@ -85,5 +102,12 @@ public class CategoryAdapter extends ListAdapter<String, CategoryAdapter.Categor
      */
     public interface OnCategoryDeleteListener {
         void onDelete(String category);
+    }
+
+    /**
+     * 分类编辑监听器接口
+     */
+    public interface OnCategoryEditListener {
+        void onEdit(String category);
     }
 }

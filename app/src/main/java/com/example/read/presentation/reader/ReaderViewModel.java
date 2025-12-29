@@ -1,5 +1,7 @@
 package com.example.read.presentation.reader;
 
+import android.util.Log;
+
 import androidx.lifecycle.LiveData;
 import androidx.lifecycle.MutableLiveData;
 import androidx.lifecycle.Observer;
@@ -128,17 +130,92 @@ public class ReaderViewModel extends ViewModel {
         };
         ttsRepository.getTTSState().observeForever(ttsStateObserver);
         
+        // 观察TTS位置变化 - 用于实时更新高亮
+        ttsPositionObserver = position -> {
+            // 更新TTSState中的位置
+            ReaderUiState currentState = _uiState.getValue();
+            if (currentState != null && currentState.getTtsState() != null) {
+                TTSState ttsState = currentState.getTtsState().copy();
+                ttsState.setCurrentPosition(position);
+                updateState(state -> state.setTtsState(ttsState));
+            }
+        };
+        ttsRepository.getCurrentPosition().observeForever(ttsPositionObserver);
+        
         // 设置章节完成监听器
         ttsRepository.setOnChapterCompleteListener(chapterId -> {
             // 验证需求：10.5 - 自动开始朗读下一章节
-            goToNextChapter();
-            ReaderUiState currentState = _uiState.getValue();
-            if (currentState != null && currentState.getCurrentChapter() != null) {
-                String content = currentState.getDisplayContent();
-                if (content != null && !content.isEmpty()) {
-                    ttsRepository.startReading(content, 0);
+            // 使用executorService确保在后台线程执行，避免阻塞主线程
+            executorService.execute(() -> {
+                ReaderUiState currentState = _uiState.getValue();
+                if (currentState == null || !currentState.canGoNextChapter()) {
+                    // 没有下一章，停止朗读
+                    return;
                 }
-            }
+                
+                // 切换到下一章
+                int currentIndex = currentState.getCurrentChapterIndex();
+                List<Chapter> chapters = currentState.getChapters();
+                if (chapters != null && currentIndex < chapters.size() - 1) {
+                    Chapter nextChapter = chapters.get(currentIndex + 1);
+                    
+                    // 加载下一章内容
+                    try {
+                        Chapter fullChapter = novelRepository.getChapterById(nextChapter.getId());
+                        if (fullChapter != null) {
+                            final String displayContent = getFilteredContent(fullChapter);
+                            
+                            // 预加载相邻章节
+                            Chapter prevChapter = currentState.getCurrentChapter();
+                            String prevContent = currentState.getDisplayContent();
+                            
+                            Chapter nextNextChapter = null;
+                            String nextNextContent = "";
+                            if (currentIndex + 2 < chapters.size()) {
+                                long nextNextId = chapters.get(currentIndex + 2).getId();
+                                nextNextChapter = novelRepository.getChapterById(nextNextId);
+                                nextNextContent = getFilteredContent(nextNextChapter);
+                            }
+                            
+                            final Chapter finalPrevChapter = prevChapter;
+                            final String finalPrevContent = prevContent;
+                            final Chapter finalNextChapter = nextNextChapter;
+                            final String finalNextContent = nextNextContent;
+                            
+                            // 更新UI状态
+                            updateState(state -> {
+                                state.setCurrentChapter(fullChapter);
+                                state.setDisplayContent(displayContent);
+                                state.setPreviousChapter(finalPrevChapter);
+                                state.setNextChapter(finalNextChapter);
+                                state.setPreviousChapterContent(finalPrevContent);
+                                state.setNextChapterContent(finalNextContent);
+                            });
+                            
+                            // 更新阅读进度
+                            if (currentNovelId > 0) {
+                                novelRepository.updateReadingProgress(currentNovelId, fullChapter.getId(), 0);
+                            }
+                            
+                            // 更新TTS当前章节并开始朗读
+                            ttsRepository.setCurrentChapterId(fullChapter.getId());
+                            
+                            // 延迟一小段时间确保UI更新完成后再开始朗读
+                            try {
+                                Thread.sleep(100);
+                            } catch (InterruptedException e) {
+                                Thread.currentThread().interrupt();
+                            }
+                            
+                            if (displayContent != null && !displayContent.isEmpty()) {
+                                ttsRepository.startReading(displayContent, 0);
+                            }
+                        }
+                    } catch (Exception e) {
+                        // 加载失败，静默处理
+                    }
+                }
+            });
         });
     }
 
@@ -198,7 +275,8 @@ public class ReaderViewModel extends ViewModel {
                     currentChapter = novelRepository.getChapterById(novel.getCurrentChapterId());
                 }
                 if (currentChapter == null && !chapters.isEmpty()) {
-                    currentChapter = chapters.get(0);
+                    // 从列表获取第一章时，需要通过getChapterById获取完整内容
+                    currentChapter = novelRepository.getChapterById(chapters.get(0).getId());
                 }
 
                 final Chapter finalChapter = currentChapter;
@@ -206,15 +284,23 @@ public class ReaderViewModel extends ViewModel {
                 
                 // 检查章节内容是否为空
                 if (displayContent == null || displayContent.trim().isEmpty()) {
-                    // 检查是否所有章节内容都为空
-                    boolean allEmpty = true;
+                    // 当前章节内容为空，尝试检查其他章节
+                    // 注意：chapters列表中的Chapter对象是从ChapterInfo转换的，没有content
+                    // 需要通过getChapterById获取完整内容来检查
+                    boolean foundValidChapter = false;
                     for (Chapter ch : chapters) {
-                        if (ch.getContent() != null && !ch.getContent().trim().isEmpty()) {
-                            allEmpty = false;
+                        Chapter fullChapter = novelRepository.getChapterById(ch.getId());
+                        if (fullChapter != null && fullChapter.getContent() != null 
+                            && !fullChapter.getContent().trim().isEmpty()) {
+                            foundValidChapter = true;
+                            break;
+                        }
+                        // 只检查前几章，避免遍历太多
+                        if (ch.getChapterIndex() > 5) {
                             break;
                         }
                     }
-                    if (allEmpty) {
+                    if (!foundValidChapter) {
                         updateState(state -> {
                             state.setLoading(false);
                             state.setError("章节内容解析失败，请尝试更换解析规则重新下载");
@@ -240,15 +326,17 @@ public class ReaderViewModel extends ViewModel {
                     }
                     
                     if (currentIndex >= 0) {
-                        // 加载上一章
+                        // 加载上一章（需要从数据库获取完整内容）
                         if (currentIndex > 0) {
-                            prevChapter = chapters.get(currentIndex - 1);
+                            long prevChapterId = chapters.get(currentIndex - 1).getId();
+                            prevChapter = novelRepository.getChapterById(prevChapterId);
                             prevContent = getFilteredContent(prevChapter);
                         }
                         
-                        // 加载下一章
+                        // 加载下一章（需要从数据库获取完整内容）
                         if (currentIndex < chapters.size() - 1) {
-                            nextChapter = chapters.get(currentIndex + 1);
+                            long nextChapterId = chapters.get(currentIndex + 1).getId();
+                            nextChapter = novelRepository.getChapterById(nextChapterId);
                             nextContent = getFilteredContent(nextChapter);
                         }
                     }
@@ -386,8 +474,9 @@ public class ReaderViewModel extends ViewModel {
                     novelRepository.updateReadingProgress(currentNovelId, chapterId, 0);
                 }
 
-                // 更新TTS当前章节
-                ttsRepository.setCurrentChapterId(chapterId);
+                // 注意：不要在这里更新TTS当前章节ID
+                // TTS章节ID应该只在开始朗读时设置，而不是切换阅读章节时
+                // 这样用户可以在朗读时浏览其他章节，然后跳转回朗读位置
 
             } catch (Exception e) {
                 updateState(state -> state.setError("加载章节失败: " + e.getMessage()));
@@ -427,6 +516,64 @@ public class ReaderViewModel extends ViewModel {
             Chapter nextChapter = chapters.get(currentIndex + 1);
             loadChapter(nextChapter.getId());
         }
+    }
+
+    /**
+     * 预加载上上章内容（当用户翻到上一章中间位置时调用）
+     * 用于提前准备数据，使章节切换更流畅
+     */
+    public void preloadPreviousPreviousChapter() {
+        executorService.execute(() -> {
+            try {
+                ReaderUiState currentState = _uiState.getValue();
+                if (currentState == null) return;
+                
+                List<Chapter> chapters = currentState.getChapters();
+                int currentIndex = currentState.getCurrentChapterIndex();
+                
+                // 需要加载上上章，即 currentIndex - 2
+                if (chapters != null && currentIndex >= 2) {
+                    long prevPrevChapterId = chapters.get(currentIndex - 2).getId();
+                    Chapter prevPrevChapter = novelRepository.getChapterById(prevPrevChapterId);
+                    if (prevPrevChapter != null) {
+                        // 预加载内容到缓存（这里只是触发数据库读取，内容会被缓存）
+                        getFilteredContent(prevPrevChapter);
+                        Log.d("ReaderChapterSwitch", "[预加载] 上上章预加载完成: " + prevPrevChapter.getTitle());
+                    }
+                }
+            } catch (Exception e) {
+                Log.e("ReaderChapterSwitch", "[预加载] 上上章预加载失败: " + e.getMessage());
+            }
+        });
+    }
+
+    /**
+     * 预加载下下章内容（当用户翻到下一章中间位置时调用）
+     * 用于提前准备数据，使章节切换更流畅
+     */
+    public void preloadNextNextChapter() {
+        executorService.execute(() -> {
+            try {
+                ReaderUiState currentState = _uiState.getValue();
+                if (currentState == null) return;
+                
+                List<Chapter> chapters = currentState.getChapters();
+                int currentIndex = currentState.getCurrentChapterIndex();
+                
+                // 需要加载下下章，即 currentIndex + 2
+                if (chapters != null && currentIndex + 2 < chapters.size()) {
+                    long nextNextChapterId = chapters.get(currentIndex + 2).getId();
+                    Chapter nextNextChapter = novelRepository.getChapterById(nextNextChapterId);
+                    if (nextNextChapter != null) {
+                        // 预加载内容到缓存（这里只是触发数据库读取，内容会被缓存）
+                        getFilteredContent(nextNextChapter);
+                        Log.d("ReaderChapterSwitch", "[预加载] 下下章预加载完成: " + nextNextChapter.getTitle());
+                    }
+                }
+            } catch (Exception e) {
+                Log.e("ReaderChapterSwitch", "[预加载] 下下章预加载失败: " + e.getMessage());
+            }
+        });
     }
 
     /**
@@ -695,21 +842,35 @@ public class ReaderViewModel extends ViewModel {
      * @param keyword 搜索关键词
      */
     public void searchInNovel(String keyword) {
+        searchInNovel(keyword, 0);
+    }
+    
+    /**
+     * 在小说中搜索关键词（带当前位置）
+     * 验证需求：9.2 - 在当前小说的所有章节中查找该关键词
+     * 
+     * @param keyword 搜索关键词
+     * @param currentPosition 当前阅读位置（用于返回时恢复）
+     */
+    public void searchInNovel(String keyword, int currentPosition) {
         if (keyword == null || keyword.trim().isEmpty()) {
             clearSearchResults();
             return;
         }
 
-        // 保存当前阅读位置
+        // 保存当前阅读位置，并清空旧的搜索结果
         ReaderUiState currentState = _uiState.getValue();
         if (currentState != null && currentState.getCurrentChapter() != null) {
             ReadingPosition savedPosition = new ReadingPosition(
                     currentState.getCurrentChapter().getId(),
-                    0 // 可以从UI获取实际位置
+                    currentPosition // 保存当前位置
             );
             updateState(state -> {
                 state.setSavedPosition(savedPosition);
                 state.setSearchKeyword(keyword.trim());
+                // 清空旧的搜索结果，避免显示旧数据
+                state.setSearchResults(new ArrayList<>());
+                state.setCurrentSearchIndex(-1);
             });
         }
 
@@ -753,13 +914,117 @@ public class ReaderViewModel extends ViewModel {
         SearchResult result = results.get(index);
         updateState(state -> state.setCurrentSearchIndex(index));
 
-        // 跳转到对应章节
-        loadChapter(result.getChapterId());
+        // 获取搜索结果的位置
+        int searchPosition = result.getPosition();
+        
+        // 检查是否需要切换章节
+        if (currentState.getCurrentChapter() != null 
+                && currentState.getCurrentChapter().getId() == result.getChapterId()) {
+            // 同一章节，直接设置跳转位置
+            updateState(state -> state.setJumpToPosition(searchPosition));
+        } else {
+            // 不同章节，加载目标章节并设置跳转位置
+            loadChapterWithPosition(result.getChapterId(), searchPosition);
+        }
+    }
+    
+    /**
+     * 加载章节并跳转到指定位置
+     * 
+     * @param chapterId 章节ID
+     * @param position 跳转位置
+     */
+    private void loadChapterWithPosition(long chapterId, int position) {
+        updateState(state -> state.setLoading(true));
+
+        executorService.execute(() -> {
+            try {
+                Chapter chapter = novelRepository.getChapterById(chapterId);
+                if (chapter == null) {
+                    updateState(state -> {
+                        state.setLoading(false);
+                        state.setError("章节不存在");
+                    });
+                    return;
+                }
+
+                String filteredContent = getFilteredContent(chapter);
+
+                // 预加载相邻章节
+                ReaderUiState currentState = _uiState.getValue();
+                List<Chapter> chapters = currentState != null ? currentState.getChapters() : null;
+                
+                Chapter prevChapter = null;
+                Chapter nextChapter = null;
+                String prevContent = "";
+                String nextContent = "";
+                
+                if (chapters != null && !chapters.isEmpty()) {
+                    // 在章节列表中查找当前章节的位置
+                    int currentIndex = -1;
+                    for (int i = 0; i < chapters.size(); i++) {
+                        if (chapters.get(i).getId() == chapter.getId()) {
+                            currentIndex = i;
+                            break;
+                        }
+                    }
+                    
+                    if (currentIndex >= 0) {
+                        // 加载上一章
+                        if (currentIndex > 0) {
+                            long prevChapterId = chapters.get(currentIndex - 1).getId();
+                            prevChapter = novelRepository.getChapterById(prevChapterId);
+                            prevContent = getFilteredContent(prevChapter);
+                        }
+                        
+                        // 加载下一章
+                        if (currentIndex < chapters.size() - 1) {
+                            long nextChapterId = chapters.get(currentIndex + 1).getId();
+                            nextChapter = novelRepository.getChapterById(nextChapterId);
+                            nextContent = getFilteredContent(nextChapter);
+                        }
+                    }
+                }
+                
+                final Chapter finalPrevChapter = prevChapter;
+                final Chapter finalNextChapter = nextChapter;
+                final String finalPrevContent = prevContent;
+                final String finalNextContent = nextContent;
+
+                updateState(state -> {
+                    state.setCurrentChapter(chapter);
+                    state.setDisplayContent(filteredContent);
+                    state.setPreviousChapter(finalPrevChapter);
+                    state.setNextChapter(finalNextChapter);
+                    state.setPreviousChapterContent(finalPrevContent);
+                    state.setNextChapterContent(finalNextContent);
+                    state.setLoading(false);
+                    state.setJumpToPosition(position); // 设置跳转位置
+                });
+            } catch (Exception e) {
+                updateState(state -> {
+                    state.setLoading(false);
+                    state.setError("加载章节失败: " + e.getMessage());
+                });
+            }
+        });
     }
 
     /**
      * 导航到上一个搜索结果
      * 验证需求：9.7 - 支持上一个结果的快速导航
+     * 
+     * @param currentDisplayIndex 当前显示的索引（由 UI 层维护）
+     */
+    public void navigateToPreviousResult(int currentDisplayIndex) {
+        ReaderUiState currentState = _uiState.getValue();
+        if (currentState != null && currentState.hasSearchResults() && currentDisplayIndex > 0) {
+            navigateToSearchResult(currentDisplayIndex - 1);
+        }
+    }
+
+    /**
+     * 导航到上一个搜索结果（兼容旧接口）
      */
     public void navigateToPreviousResult() {
         ReaderUiState currentState = _uiState.getValue();
@@ -771,6 +1036,21 @@ public class ReaderViewModel extends ViewModel {
     /**
      * 导航到下一个搜索结果
      * 验证需求：9.7 - 支持下一个结果的快速导航
+     * 
+     * @param currentDisplayIndex 当前显示的索引（由 UI 层维护）
+     */
+    public void navigateToNextResult(int currentDisplayIndex) {
+        ReaderUiState currentState = _uiState.getValue();
+        if (currentState != null && currentState.hasSearchResults()) {
+            int total = currentState.getSearchResults().size();
+            if (currentDisplayIndex < total - 1) {
+                navigateToSearchResult(currentDisplayIndex + 1);
+            }
+        }
+    }
+
+    /**
+     * 导航到下一个搜索结果（兼容旧接口）
      */
     public void navigateToNextResult() {
         ReaderUiState currentState = _uiState.getValue();
@@ -791,7 +1071,17 @@ public class ReaderViewModel extends ViewModel {
         }
 
         ReadingPosition savedPosition = currentState.getSavedPosition();
-        loadChapter(savedPosition.getChapterId());
+        
+        // 检查是否需要切换章节
+        if (currentState.getCurrentChapter() != null 
+                && currentState.getCurrentChapter().getId() == savedPosition.getChapterId()) {
+            // 同一章节，直接设置跳转位置
+            updateState(state -> state.setJumpToPosition(savedPosition.getPosition()));
+        } else {
+            // 不同章节，加载目标章节并设置跳转位置
+            loadChapterWithPosition(savedPosition.getChapterId(), savedPosition.getPosition());
+        }
+        
         clearSearchResults();
     }
 
@@ -1134,6 +1424,9 @@ public class ReaderViewModel extends ViewModel {
         // 移除TTS观察者
         if (ttsStateObserver != null) {
             ttsRepository.getTTSState().removeObserver(ttsStateObserver);
+        }
+        if (ttsPositionObserver != null) {
+            ttsRepository.getCurrentPosition().removeObserver(ttsPositionObserver);
         }
         
         // 关闭线程池

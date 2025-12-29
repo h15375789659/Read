@@ -385,6 +385,15 @@ public class BookshelfActivity extends AppCompatActivity {
             }
         });
 
+        // 长按分类标签弹出重命名对话框（"全部"分类除外）
+        tab.setOnLongClickListener(v -> {
+            if (!getString(R.string.category_all).equals(category)) {
+                showRenameCategoryDialog(category);
+                return true;
+            }
+            return false;
+        });
+
         return tab;
     }
 
@@ -413,6 +422,9 @@ public class BookshelfActivity extends AppCompatActivity {
         searchBar.setVisibility(View.VISIBLE);
         searchEditText.requestFocus();
         showKeyboard();
+        
+        // 进入搜索模式，保存当前分类并加载所有小说
+        viewModel.enterSearchMode();
     }
 
     /**
@@ -422,8 +434,10 @@ public class BookshelfActivity extends AppCompatActivity {
         searchBar.setVisibility(View.GONE);
         topBar.setVisibility(View.VISIBLE);
         searchEditText.setText("");
-        viewModel.clearSearch();
         hideKeyboard();
+        
+        // 退出搜索模式，恢复到之前的分类
+        viewModel.exitSearchMode();
     }
 
     /**
@@ -516,6 +530,9 @@ public class BookshelfActivity extends AppCompatActivity {
             Toast.makeText(this, R.string.category_added, Toast.LENGTH_SHORT).show();
         });
 
+        // 编辑分类监听
+        categoryAdapter.setOnCategoryEditListener(category -> showRenameCategoryDialog(category));
+
         // 删除分类监听
         categoryAdapter.setOnCategoryDeleteListener(category -> {
             new AlertDialog.Builder(this)
@@ -579,6 +596,7 @@ public class BookshelfActivity extends AppCompatActivity {
         EditText editCategoryName = view.findViewById(R.id.edit_category_name);
 
         new AlertDialog.Builder(this)
+                .setTitle(R.string.add_category_title)
                 .setView(view)
                 .setPositiveButton(R.string.dialog_confirm, (dialog, which) -> {
                     String categoryName = editCategoryName.getText().toString().trim();
@@ -599,6 +617,52 @@ public class BookshelfActivity extends AppCompatActivity {
     }
 
     /**
+     * 显示重命名分类对话框
+     */
+    private void showRenameCategoryDialog(String oldCategoryName) {
+        // "全部"分类不允许重命名
+        if (getString(R.string.category_all).equals(oldCategoryName)) {
+            Toast.makeText(this, R.string.category_cannot_rename, Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        View view = getLayoutInflater().inflate(R.layout.dialog_add_category, null);
+        EditText editCategoryName = view.findViewById(R.id.edit_category_name);
+        editCategoryName.setText(oldCategoryName);
+        editCategoryName.setHint(R.string.rename_category_hint);
+        // 选中所有文字方便编辑
+        editCategoryName.selectAll();
+
+        new AlertDialog.Builder(this)
+                .setTitle(R.string.rename_category)
+                .setView(view)
+                .setPositiveButton(R.string.dialog_confirm, (dialog, which) -> {
+                    String newCategoryName = editCategoryName.getText().toString().trim();
+                    if (newCategoryName.isEmpty()) {
+                        Toast.makeText(this, R.string.category_name_empty, Toast.LENGTH_SHORT).show();
+                        return;
+                    }
+                    if (newCategoryName.equals(oldCategoryName)) {
+                        // 名称没有变化，不需要操作
+                        return;
+                    }
+                    if (categories.contains(newCategoryName)) {
+                        Toast.makeText(this, R.string.category_exists, Toast.LENGTH_SHORT).show();
+                        return;
+                    }
+                    // 重命名分类
+                    viewModel.renameCategory(oldCategoryName, newCategoryName);
+                    // 如果重命名的是当前选中的分类，更新selectedCategory
+                    if (oldCategoryName.equals(selectedCategory)) {
+                        selectedCategory = newCategoryName;
+                    }
+                    Toast.makeText(this, R.string.category_renamed, Toast.LENGTH_SHORT).show();
+                })
+                .setNegativeButton(R.string.dialog_cancel, null)
+                .show();
+    }
+
+    /**
      * 更新空状态视图
      */
     private void updateEmptyView(List<Novel> novels) {
@@ -606,12 +670,20 @@ public class BookshelfActivity extends AppCompatActivity {
         boolean isEmpty = novels == null || novels.isEmpty();
         boolean isSearching = state != null && state.getSearchQuery() != null 
                 && !state.getSearchQuery().isEmpty();
+        String currentCategory = state != null ? state.getSelectedCategory() : "全部";
+        boolean isInCategory = !getString(R.string.category_all).equals(currentCategory);
 
         emptyView.setVisibility(isEmpty ? View.VISIBLE : View.GONE);
         recyclerView.setVisibility(isEmpty ? View.GONE : View.VISIBLE);
 
         if (isEmpty) {
-            emptyText.setText(isSearching ? R.string.no_search_results : R.string.empty_bookshelf);
+            if (isSearching) {
+                emptyText.setText(R.string.no_search_results);
+            } else if (isInCategory) {
+                emptyText.setText(R.string.empty_category);
+            } else {
+                emptyText.setText(R.string.empty_bookshelf);
+            }
         }
     }
 
@@ -783,6 +855,11 @@ public class BookshelfActivity extends AppCompatActivity {
                     String newCategory = availableCategories.get(which);
                     viewModel.updateNovelCategory(novel.getId(), newCategory);
                     dialog.dismiss();
+                })
+                .setNeutralButton(R.string.clear_category, (dialog, which) -> {
+                    // 移除分类（设置为空字符串）
+                    viewModel.updateNovelCategory(novel.getId(), "");
+                    Toast.makeText(this, R.string.category_cleared, Toast.LENGTH_SHORT).show();
                 })
                 .setNegativeButton(R.string.dialog_cancel, null)
                 .show();
@@ -959,14 +1036,24 @@ public class BookshelfActivity extends AppCompatActivity {
             // 更新全选按钮文本
             updateSelectAllButtonText(state.isAllSelected());
         } else {
-            // 隐藏批量操作栏，显示普通顶部栏
-            topBar.setVisibility(View.VISIBLE);
+            // 隐藏批量操作栏
             if (batchOperationBar != null) {
                 batchOperationBar.setVisibility(View.GONE);
             }
             if (batchBottomActions != null) {
                 batchBottomActions.setVisibility(View.GONE);
             }
+            
+            // 检查当前是否处于搜索状态，如果是则保持搜索栏显示
+            boolean isSearching = searchBar.getVisibility() == View.VISIBLE;
+            if (isSearching) {
+                // 保持搜索状态，不显示顶部栏
+                topBar.setVisibility(View.GONE);
+            } else {
+                // 显示普通顶部栏
+                topBar.setVisibility(View.VISIBLE);
+            }
+            
             // 显示FAB
             fabImport.setVisibility(View.VISIBLE);
         }
@@ -1043,6 +1130,11 @@ public class BookshelfActivity extends AppCompatActivity {
                     String newCategory = availableCategories.get(which);
                     viewModel.batchUpdateCategory(selectedIds, newCategory);
                     Toast.makeText(this, R.string.batch_change_category_success, Toast.LENGTH_SHORT).show();
+                })
+                .setNeutralButton(R.string.clear_category, (dialog, which) -> {
+                    // 批量移除分类（设置为空字符串）
+                    viewModel.batchUpdateCategory(selectedIds, "");
+                    Toast.makeText(this, R.string.category_cleared, Toast.LENGTH_SHORT).show();
                 })
                 .setNegativeButton(R.string.dialog_cancel, null)
                 .show();

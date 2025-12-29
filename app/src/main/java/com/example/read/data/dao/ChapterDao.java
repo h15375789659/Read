@@ -8,6 +8,7 @@ import androidx.room.Query;
 import androidx.room.Update;
 
 import com.example.read.data.entity.ChapterEntity;
+import com.example.read.data.entity.ChapterInfo;
 
 import java.util.List;
 
@@ -17,14 +18,21 @@ import java.util.List;
 @Dao
 public interface ChapterDao {
 
-    @Query("SELECT * FROM chapters WHERE novelId = :novelId ORDER BY chapterIndex")
-    LiveData<List<ChapterEntity>> getChaptersByNovelId(long novelId);
+    // ========== 章节列表查询（不含content，避免CursorWindow溢出）==========
+    
+    @Query("SELECT id, novelId, title, chapterIndex, wordCount, sourceUrl, summary, createTime FROM chapters WHERE novelId = :novelId ORDER BY chapterIndex")
+    LiveData<List<ChapterInfo>> getChapterInfosByNovelId(long novelId);
 
-    @Query("SELECT * FROM chapters WHERE novelId = :novelId ORDER BY chapterIndex")
-    List<ChapterEntity> getChaptersByNovelIdSync(long novelId);
+    @Query("SELECT id, novelId, title, chapterIndex, wordCount, sourceUrl, summary, createTime FROM chapters WHERE novelId = :novelId ORDER BY chapterIndex")
+    List<ChapterInfo> getChapterInfosByNovelIdSync(long novelId);
+    
+    // ========== 单章节查询（含content）==========
 
     @Query("SELECT * FROM chapters WHERE id = :chapterId")
     ChapterEntity getChapterById(long chapterId);
+    
+    @Query("SELECT content FROM chapters WHERE id = :chapterId")
+    String getChapterContentById(long chapterId);
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     void insertChapters(List<ChapterEntity> chapters);

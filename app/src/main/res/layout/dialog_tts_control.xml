@@ -1,0 +1,166 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:background="@drawable/bg_bottom_sheet"
+    android:paddingBottom="16dp">
+
+    <!-- 顶部拖动条 -->
+    <View
+        android:layout_width="40dp"
+        android:layout_height="4dp"
+        android:layout_gravity="center_horizontal"
+        android:layout_marginTop="12dp"
+        android:background="@drawable/bg_drag_handle" />
+
+    <!-- 标题 -->
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="16dp"
+        android:layout_marginHorizontal="16dp"
+        android:text="@string/tts_control_title"
+        android:textSize="18sp"
+        android:textStyle="bold"
+        android:textColor="@color/text_primary" />
+
+    <!-- 段落选择区域 -->
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="16dp"
+        android:layout_marginHorizontal="16dp"
+        android:text="@string/tts_select_paragraph"
+        android:textSize="14sp"
+        android:textColor="@color/text_secondary" />
+
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/paragraph_list"
+        android:layout_width="match_parent"
+        android:layout_height="160dp"
+        android:layout_marginTop="8dp"
+        android:layout_marginHorizontal="16dp"
+        android:background="@drawable/bg_paragraph_list"
+        android:clipToPadding="false"
+        android:padding="4dp" />
+
+    <!-- 分隔线 -->
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:layout_marginTop="16dp"
+        android:layout_marginHorizontal="16dp"
+        android:background="@color/divider" />
+
+    <!-- 播放控制按钮 -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="16dp"
+        android:gravity="center"
+        android:orientation="horizontal">
+
+        <!-- 播放/暂停按钮 -->
+        <ImageButton
+            android:id="@+id/btn_play_pause"
+            android:layout_width="64dp"
+            android:layout_height="64dp"
+            android:background="@drawable/bg_play_button"
+            android:contentDescription="@string/tts_play"
+            android:src="@android:drawable/ic_media_play"
+            app:tint="@android:color/white" />
+
+    </LinearLayout>
+
+    <!-- 语速调节 -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="16dp"
+        android:layout_marginHorizontal="16dp"
+        android:orientation="vertical">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="@string/tts_speed"
+                android:textSize="14sp"
+                android:textColor="@color/text_primary" />
+
+            <TextView
+                android:id="@+id/speed_value"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textSize="14sp"
+                android:textColor="@color/text_secondary"
+                tools:text="1.0x" />
+
+        </LinearLayout>
+
+        <SeekBar
+            android:id="@+id/speed_seekbar"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:max="150"
+            android:progress="50" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="0.5x"
+                android:textSize="12sp"
+                android:textColor="@color/text_hint" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="2.0x"
+                android:textSize="12sp"
+                android:textColor="@color/text_hint" />
+
+        </LinearLayout>
+
+    </LinearLayout>
+
+    <!-- 音色选择 -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="16dp"
+        android:layout_marginHorizontal="16dp"
+        android:orientation="horizontal"
+        android:gravity="center_vertical">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/tts_voice"
+            android:textSize="14sp"
+            android:textColor="@color/text_primary" />
+
+        <Spinner
+            android:id="@+id/voice_spinner"
+            android:layout_width="0dp"
+            android:layout_height="48dp"
+            android:layout_weight="1"
+            android:layout_marginStart="16dp" />
+
+    </LinearLayout>
+
+</LinearLayout>

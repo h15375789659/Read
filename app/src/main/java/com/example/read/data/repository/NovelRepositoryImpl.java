@@ -8,6 +8,7 @@ import com.example.read.data.dao.ChapterDao;
 import com.example.read.data.dao.NovelDao;
 import com.example.read.data.entity.CategoryEntity;
 import com.example.read.data.entity.ChapterEntity;
+import com.example.read.data.entity.ChapterInfo;
 import com.example.read.data.entity.NovelEntity;
 import com.example.read.domain.mapper.ChapterMapper;
 import com.example.read.domain.mapper.NovelMapper;
@@ -123,13 +124,13 @@ public class NovelRepositoryImpl implements NovelRepository {
     
     @Override
     public LiveData<List<Chapter>> getChaptersByNovelId(long novelId) {
-        return Transformations.map(chapterDao.getChaptersByNovelId(novelId), ChapterMapper::toDomainList);
+        return Transformations.map(chapterDao.getChapterInfosByNovelId(novelId), ChapterMapper::toDomainListFromInfo);
     }
     
     @Override
     public List<Chapter> getChaptersByNovelIdSync(long novelId) {
-        List<ChapterEntity> entities = chapterDao.getChaptersByNovelIdSync(novelId);
-        return ChapterMapper.toDomainList(entities);
+        List<ChapterInfo> infos = chapterDao.getChapterInfosByNovelIdSync(novelId);
+        return ChapterMapper.toDomainListFromInfo(infos);
     }
     
     @Override
@@ -314,5 +315,16 @@ public class NovelRepositoryImpl implements NovelRepository {
         for (Long novelId : novelIds) {
             novelDao.updateCategory(novelId, category);
         }
+    }
+    
+    @Override
+    public void renameCategory(String oldName, String newName) {
+        if (oldName == null || newName == null || oldName.isEmpty() || newName.isEmpty()) {
+            return;
+        }
+        // 更新分类表中的分类名
+        categoryDao.renameCategory(oldName, newName);
+        // 更新所有该分类下小说的分类字段
+        novelDao.updateCategoryToDefault(oldName, newName);
     }
 }

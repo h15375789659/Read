@@ -64,14 +64,22 @@
         android:textSize="12sp"
         android:visibility="gone" />
 
-    <!-- 搜索结果列表 -->
+    <!-- 搜索结果列表（带快速滚动条） -->
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/search_results_recycler_view"
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1"
         android:clipToPadding="false"
-        android:paddingBottom="72dp" />
+        android:paddingBottom="16dp"
+        android:scrollbarStyle="outsideOverlay"
+        android:scrollbars="vertical"
+        android:fadeScrollbars="false"
+        app:fastScrollEnabled="true"
+        app:fastScrollVerticalThumbDrawable="@drawable/fast_scroll_thumb"
+        app:fastScrollVerticalTrackDrawable="@drawable/fast_scroll_track"
+        app:fastScrollHorizontalThumbDrawable="@drawable/fast_scroll_thumb_horizontal"
+        app:fastScrollHorizontalTrackDrawable="@drawable/fast_scroll_track_horizontal" />
 
     <!-- 空状态提示 -->
     <LinearLayout
@@ -108,57 +116,5 @@
         android:layout_height="wrap_content"
         android:layout_gravity="center"
         android:visibility="gone" />
-
-    <!-- 底部导航栏 -->
-    <LinearLayout
-        android:id="@+id/navigation_bar"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:padding="12dp"
-        android:background="@color/surface"
-        android:elevation="8dp"
-        android:visibility="gone">
-
-        <!-- 上一个结果 -->
-        <ImageButton
-            android:id="@+id/btn_previous_result"
-            android:layout_width="48dp"
-            android:layout_height="48dp"
-            android:background="?attr/selectableItemBackgroundBorderless"
-            android:contentDescription="@string/search_previous"
-            android:src="@android:drawable/ic_media_previous"
-            app:tint="@color/text_primary" />
-
-        <!-- 当前结果位置 -->
-        <TextView
-            android:id="@+id/current_result_position"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:gravity="center"
-            android:layout_gravity="center_vertical"
-            android:textColor="@color/text_primary"
-            android:textSize="14sp" />
-
-        <!-- 下一个结果 -->
-        <ImageButton
-            android:id="@+id/btn_next_result"
-            android:layout_width="48dp"
-            android:layout_height="48dp"
-            android:background="?attr/selectableItemBackgroundBorderless"
-            android:contentDescription="@string/search_next"
-            android:src="@android:drawable/ic_media_next"
-            app:tint="@color/text_primary" />
-
-        <!-- 返回原位置 -->
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/btn_return_position"
-            style="@style/Widget.Material3.Button.TextButton"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="@string/search_return_position" />
-
-    </LinearLayout>
 
 </LinearLayout>

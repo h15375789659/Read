@@ -3,6 +3,7 @@ package com.example.read.data.entity;
 import androidx.annotation.NonNull;
 import androidx.room.Entity;
 import androidx.room.ForeignKey;
+import androidx.room.Ignore;
 import androidx.room.Index;
 import androidx.room.PrimaryKey;
 
@@ -37,6 +38,7 @@ public class ChapterEntity {
     private String summary;
     private long createTime;
 
+    @Ignore
     public ChapterEntity(long novelId, @NonNull String title, @NonNull String content, int chapterIndex) {
         this.novelId = novelId;
         this.title = title;
@@ -44,6 +46,14 @@ public class ChapterEntity {
         this.chapterIndex = chapterIndex;
         this.wordCount = content.length();
         this.createTime = System.currentTimeMillis();
+    }
+    
+    /**
+     * Room 使用的无参构造函数
+     */
+    public ChapterEntity() {
+        this.title = "";
+        this.content = "";
     }
 
     // Getters

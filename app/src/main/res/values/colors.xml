@@ -6,6 +6,7 @@
     <!-- 主题色 - 棕色系 -->
     <color name="primary">#8B6914</color>
     <color name="primary_dark">#6B5010</color>
+    <color name="primary_light">#FFE082</color>
     <color name="primary_variant">#A67C00</color>
     <color name="secondary">#D4A574</color>
     <color name="secondary_variant">#B8956A</color>
@@ -62,4 +63,11 @@
 
     <!-- 搜索结果选中 -->
     <color name="search_result_selected">#FFF3E0</color>
+
+    <!-- 波纹效果颜色 -->
+    <color name="ripple_color">#20000000</color>
+
+    <!-- TTS朗读高亮颜色 -->
+    <color name="tts_reading_indicator">#4CAF50</color>
+    <color name="tts_reading_background">#E8F5E9</color>
 </resources>

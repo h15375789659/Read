@@ -47,7 +47,7 @@ public class NovelEntity {
         this.source = "local";
         this.lastReadTime = System.currentTimeMillis();
         this.createTime = System.currentTimeMillis();
-        this.category = "未分类";
+        this.category = "";  // 空字符串表示无分类
         this.isPinned = false;
     }
 

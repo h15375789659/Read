@@ -82,4 +82,10 @@ public interface CategoryDao {
      */
     @Query("SELECT MAX(sortOrder) FROM categories")
     Integer getMaxSortOrder();
+    
+    /**
+     * 重命名分类
+     */
+    @Query("UPDATE categories SET name = :newName WHERE name = :oldName")
+    void renameCategory(String oldName, String newName);
 }

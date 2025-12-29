@@ -5,6 +5,7 @@
     <string name="bookshelf_title">我的书架</string>
     <string name="search_hint">搜索小说标题或作者</string>
     <string name="empty_bookshelf">书架空空如也\n点击右下角按钮添加小说</string>
+    <string name="empty_category">该分类空空如也</string>
     <string name="no_search_results">未找到相关小说</string>
 
     <!-- 分类标签 -->
@@ -21,10 +22,16 @@
     <string name="category_exists">该分类已存在</string>
     <string name="category_name_empty">分类名称不能为空</string>
     <string name="set_category">设置分类</string>
+    <string name="clear_category">移除分类</string>
+    <string name="category_cleared">已移除分类</string>
     <string name="existing_categories">已有分类</string>
     <string name="no_categories">暂无分类，请添加</string>
     <string name="category_added">分类添加成功</string>
     <string name="category_deleted">分类已删除</string>
+    <string name="category_renamed">分类已重命名</string>
+    <string name="rename_category">重命名分类</string>
+    <string name="rename_category_hint">请输入新的分类名称</string>
+    <string name="category_cannot_rename">「全部」分类不能重命名</string>
 
     <!-- 小说条目 -->
     <string name="novel_progress">阅读进度: %1$d%%</string>
@@ -129,6 +136,7 @@
     <string name="search_previous">上一个</string>
     <string name="search_next">下一个</string>
     <string name="search_return_position">返回原位置</string>
+    <string name="search_cancel">取消</string>
     <string name="search_result_count">共 %1$d 个结果</string>
     <string name="search_no_results">未找到相关内容</string>
     <string name="search_position">%1$d / %2$d</string>
@@ -199,4 +207,19 @@
     <string name="cancel">取消</string>
     <string name="save">保存</string>
     <string name="confirm">确定</string>
+
+    <!-- TTS语音朗读 -->
+    <string name="tts_control_title">语音朗读</string>
+    <string name="tts_select_paragraph">选择朗读起点</string>
+    <string name="tts_play">播放</string>
+    <string name="tts_pause">暂停</string>
+    <string name="tts_stop">停止</string>
+    <string name="tts_from_beginning">从头开始</string>
+    <string name="tts_speed">语速</string>
+    <string name="tts_speed_value">%1$.1fx</string>
+    <string name="tts_voice">音色</string>
+    <string name="tts_reading">正在朗读</string>
+    <string name="tts_paused">已暂停</string>
+    <string name="tts_no_paragraphs">当前页面没有可朗读的内容</string>
+    <string name="tts_settings">朗读设置</string>
 </resources>

@@ -131,4 +131,11 @@ public interface NovelRepository {
      * @param category 目标分类
      */
     void batchUpdateCategory(List<Long> novelIds, String category);
+    
+    /**
+     * 重命名分类
+     * @param oldName 旧分类名
+     * @param newName 新分类名
+     */
+    void renameCategory(String oldName, String newName);
 }

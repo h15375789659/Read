@@ -79,6 +79,18 @@ public class PageContentView extends View {
     
     // 状态信息画笔
     private Paint statusPaint;
+    
+    // TTS高亮相关
+    private Paint highlightPaint;           // 高亮背景画笔
+    private int highlightStartInPage = -1;  // 页面内高亮起始位置
+    private int highlightEndInPage = -1;    // 页面内高亮结束位置
+    private int pageStartIndex = 0;         // 当前页面在章节中的起始位置
+    private static final int HIGHLIGHT_COLOR = 0x4000BCD4; // 高亮颜色（半透明青色）
+    
+    // 搜索关键词高亮相关
+    private String searchKeyword = "";      // 搜索关键词
+    private Paint searchHighlightPaint;     // 搜索高亮画笔
+    private static final int SEARCH_HIGHLIGHT_COLOR = 0xFFFFD54F; // 搜索高亮颜色（黄色）
 
     public PageContentView(Context context) {
         super(context);
@@ -125,6 +137,16 @@ public class PageContentView extends View {
         statusPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
         statusPaint.setTextSize(spToPx(13));
         statusPaint.setColor(0xFF999999);
+        
+        // TTS高亮画笔
+        highlightPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        highlightPaint.setColor(HIGHLIGHT_COLOR);
+        highlightPaint.setStyle(Paint.Style.FILL);
+        
+        // 搜索高亮画笔
+        searchHighlightPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        searchHighlightPaint.setColor(SEARCH_HIGHLIGHT_COLOR);
+        searchHighlightPaint.setStyle(Paint.Style.FILL);
     }
 
     @Override
@@ -150,11 +172,26 @@ public class PageContentView extends View {
             y += titleLayout.getHeight() + spToPx(24);
         }
         
-        // 绘制页面内容
+        // 绘制页面内容（包含TTS高亮和搜索高亮）
         if (pageContent != null && !pageContent.isEmpty()) {
             StaticLayout contentLayout = createStaticLayout(pageContent, textPaint, contentWidth);
+            
             canvas.save();
             canvas.translate(paddingHorizontal, y);
+            
+            // 绘制搜索关键词高亮（先绘制，在文字下方）
+            if (searchKeyword != null && !searchKeyword.isEmpty()) {
+                drawSearchHighlight(canvas, contentLayout, pageContent, searchKeyword);
+            }
+            
+            // 绘制TTS高亮背景
+            if (highlightStartInPage >= 0 && highlightEndInPage > highlightStartInPage 
+                    && highlightStartInPage < pageContent.length()) {
+                drawHighlight(canvas, contentLayout, highlightStartInPage, 
+                        Math.min(highlightEndInPage, pageContent.length()));
+            }
+            
+            // 绘制文本
             contentLayout.draw(canvas);
             canvas.restore();
         }
@@ -173,6 +210,82 @@ public class PageContentView extends View {
         if (statusTimeBattery != null && !statusTimeBattery.isEmpty()) {
             float textWidth = statusPaint.measureText(statusTimeBattery);
             canvas.drawText(statusTimeBattery, width - paddingHorizontal - textWidth, height - spToPx(16), statusPaint);
+        }
+    }
+    
+    /**
+     * 绘制TTS高亮背景
+     * 使用整行高亮方式
+     */
+    private void drawHighlight(Canvas canvas, StaticLayout layout, int start, int end) {
+        if (layout == null || start >= end) return;
+        
+        // 获取内容宽度
+        int contentWidth = getWidth() - paddingHorizontal * 2;
+        
+        // 获取高亮区域的行范围
+        int startLine = layout.getLineForOffset(Math.min(start, layout.getText().length() - 1));
+        int endLine = layout.getLineForOffset(Math.min(end - 1, layout.getText().length() - 1));
+        
+        // 绘制每一行的高亮（整行高亮）
+        for (int line = startLine; line <= endLine; line++) {
+            float top = layout.getLineTop(line);
+            float bottom = layout.getLineBottom(line);
+            canvas.drawRect(0, top, contentWidth, bottom, highlightPaint);
+        }
+    }
+    
+    /**
+     * 绘制搜索关键词高亮
+     * 只高亮关键词文字区域
+     */
+    private void drawSearchHighlight(Canvas canvas, StaticLayout layout, String text, String keyword) {
+        if (layout == null || text == null || keyword == null || keyword.isEmpty()) return;
+        
+        String lowerText = text.toLowerCase();
+        String lowerKeyword = keyword.toLowerCase();
+        
+        int start = 0;
+        while ((start = lowerText.indexOf(lowerKeyword, start)) != -1) {
+            int end = start + keyword.length();
+            
+            // 获取关键词所在的行
+            int startLine = layout.getLineForOffset(start);
+            int endLine = layout.getLineForOffset(end - 1);
+            
+            // 绘制每一行中关键词的高亮
+            for (int line = startLine; line <= endLine; line++) {
+                int lineStart = layout.getLineStart(line);
+                int lineEnd = layout.getLineEnd(line);
+                
+                // 计算当前行中需要高亮的范围
+                int highlightStart = Math.max(start, lineStart);
+                int highlightEnd = Math.min(end, lineEnd);
+                
+                if (highlightStart < highlightEnd) {
+                    float left = layout.getPrimaryHorizontal(highlightStart);
+                    float right;
+                    
+                    // 如果高亮结束位置是行尾，需要特殊处理
+                    // getPrimaryHorizontal(lineEnd) 可能返回下一行开始位置，导致计算错误
+                    if (highlightEnd >= lineEnd) {
+                        // 使用行宽度作为右边界
+                        right = layout.getLineRight(line);
+                    } else {
+                        right = layout.getPrimaryHorizontal(highlightEnd);
+                    }
+                    
+                    float top = layout.getLineTop(line);
+                    float bottom = layout.getLineBottom(line);
+                    
+                    // 确保 right > left，避免绘制无效矩形
+                    if (right > left) {
+                        canvas.drawRect(left, top, right, bottom, searchHighlightPaint);
+                    }
+                }
+            }
+            
+            start = end;
         }
     }
 
@@ -267,6 +380,24 @@ public class PageContentView extends View {
         this.lineSpacing = spacing;
         invalidate();
     }
+    
+    /**
+     * 设置搜索关键词（用于高亮显示）
+     */
+    public void setSearchKeyword(String keyword) {
+        this.searchKeyword = keyword != null ? keyword : "";
+        invalidate();
+    }
+    
+    /**
+     * 清除搜索关键词高亮
+     */
+    public void clearSearchKeyword() {
+        if (this.searchKeyword != null && !this.searchKeyword.isEmpty()) {
+            this.searchKeyword = "";
+            invalidate();
+        }
+    }
 
     /**
      * 设置字体
@@ -340,5 +471,158 @@ public class PageContentView extends View {
      */
     public TextPaint getTextPaint() {
         return textPaint;
+    }
+    
+    /**
+     * 设置当前页面在章节中的起始位置（缩进后文本）
+     * @param startIndex 起始位置
+     */
+    public void setPageStartIndex(int startIndex) {
+        this.pageStartIndex = startIndex;
+    }
+    
+    /**
+     * 获取当前页面在章节中的起始位置
+     */
+    public int getPageStartIndex() {
+        return pageStartIndex;
+    }
+    
+    // 原始文本起始位置（用于TTS高亮匹配）
+    private int originalStartIndex = 0;
+    private int originalEndIndex = 0;
+    
+    /**
+     * 设置原始文本位置范围（用于TTS高亮匹配）
+     * @param originalStart 原始文本起始位置
+     * @param originalEnd 原始文本结束位置
+     */
+    public void setOriginalTextRange(int originalStart, int originalEnd) {
+        this.originalStartIndex = originalStart;
+        this.originalEndIndex = originalEnd;
+    }
+    
+    /**
+     * 设置TTS高亮位置（基于原始文本位置）
+     * 使用简化的段落查找逻辑：直接在页面内容中通过换行符定位段落
+     * @param originalPosition TTS在原始文本中的当前位置
+     */
+    public void setTTSHighlight(int originalPosition) {
+        if (pageContent == null || pageContent.isEmpty()) {
+            clearTTSHighlight();
+            return;
+        }
+        
+        // 检查TTS位置是否在当前页面的原始文本范围内
+        if (originalPosition < originalStartIndex || originalPosition >= originalEndIndex) {
+            clearTTSHighlight();
+            return;
+        }
+        
+        // 将原始位置转换为页面内位置，然后查找段落
+        int pagePosition = convertOriginalToPagePosition(originalPosition);
+        
+        if (pagePosition < 0 || pagePosition >= pageContent.length()) {
+            // 位置无效，高亮整个页面
+            highlightStartInPage = 0;
+            highlightEndInPage = pageContent.length();
+            invalidate();
+            return;
+        }
+        
+        // 在页面内容中查找包含该位置的段落
+        int paragraphStart = findParagraphStart(pageContent, pagePosition);
+        int paragraphEnd = findParagraphEnd(pageContent, pagePosition);
+        
+        // 更新高亮范围
+        if (highlightStartInPage != paragraphStart || highlightEndInPage != paragraphEnd) {
+            highlightStartInPage = paragraphStart;
+            highlightEndInPage = paragraphEnd;
+            invalidate();
+        }
+    }
+    
+    /**
+     * 将原始文本位置转换为页面内位置
+     * 考虑首行缩进带来的偏移
+     */
+    private int convertOriginalToPagePosition(int originalPosition) {
+        if (pageContent == null || pageContent.isEmpty()) {
+            return -1;
+        }
+        
+        // 计算原始位置相对于页面原始起始位置的偏移
+        int relativeOriginalPos = originalPosition - originalStartIndex;
+        
+        if (relativeOriginalPos < 0) {
+            return -1;
+        }
+        
+        // 遍历页面内容，计算缩进偏移
+        int pagePos = 0;
+        int originalOffset = 0;
+        boolean atLineStart = true;
+        
+        while (pagePos < pageContent.length()) {
+            char c = pageContent.charAt(pagePos);
+            
+            // 检查是否是缩进字符（全角空格在行首）
+            if (atLineStart && c == '\u3000') {
+                pagePos++;
+                continue;
+            }
+            
+            // 检查是否已经到达目标位置
+            if (originalOffset >= relativeOriginalPos) {
+                return pagePos;
+            }
+            
+            atLineStart = (c == '\n');
+            pagePos++;
+            originalOffset++;
+        }
+        
+        return Math.min(pagePos, pageContent.length() - 1);
+    }
+    
+    /**
+     * 清除TTS高亮
+     */
+    public void clearTTSHighlight() {
+        if (highlightStartInPage >= 0 || highlightEndInPage >= 0) {
+            highlightStartInPage = -1;
+            highlightEndInPage = -1;
+            invalidate();
+        }
+    }
+    
+    /**
+     * 查找段落起始位置
+     */
+    private int findParagraphStart(String text, int position) {
+        if (position <= 0) return 0;
+        
+        // 向前查找换行符
+        for (int i = position - 1; i >= 0; i--) {
+            if (text.charAt(i) == '\n') {
+                return i + 1;
+            }
+        }
+        return 0;
+    }
+    
+    /**
+     * 查找段落结束位置
+     */
+    private int findParagraphEnd(String text, int position) {
+        if (position >= text.length()) return text.length();
+        
+        // 向后查找换行符
+        for (int i = position; i < text.length(); i++) {
+            if (text.charAt(i) == '\n') {
+                return i;
+            }
+        }
+        return text.length();
     }
 }

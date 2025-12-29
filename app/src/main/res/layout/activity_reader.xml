@@ -318,4 +318,138 @@
         android:textSize="13sp"
         tools:text="12:30 · 80%" />
 
+    <!-- 搜索悬浮导航栏 -->
+    <LinearLayout
+        android:id="@+id/search_navigation_bar"
+        android:layout_width="match_parent"
+        android:layout_height="48dp"
+        android:layout_gravity="bottom"
+        android:layout_marginHorizontal="16dp"
+        android:layout_marginBottom="16dp"
+        android:background="@drawable/bg_search_navigation"
+        android:elevation="12dp"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingHorizontal="8dp"
+        android:visibility="gone"
+        tools:visibility="visible">
+
+        <!-- 取消搜索（退出搜索模式） -->
+        <TextView
+            android:id="@+id/search_nav_cancel"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:paddingHorizontal="12dp"
+            android:paddingVertical="8dp"
+            android:text="@string/search_cancel"
+            android:textColor="@color/primary_light"
+            android:textSize="13sp" />
+
+        <!-- 上一个结果 -->
+        <ImageButton
+            android:id="@+id/search_nav_previous"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="@string/search_previous"
+            android:src="@android:drawable/ic_media_previous"
+            app:tint="@android:color/white" />
+
+        <!-- 当前结果位置 -->
+        <TextView
+            android:id="@+id/search_nav_position"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:gravity="center"
+            android:textColor="@android:color/white"
+            android:textSize="14sp"
+            tools:text="135 / 1657" />
+
+        <!-- 下一个结果 -->
+        <ImageButton
+            android:id="@+id/search_nav_next"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="@string/search_next"
+            android:src="@android:drawable/ic_media_next"
+            app:tint="@android:color/white" />
+
+        <!-- 返回原位置 -->
+        <TextView
+            android:id="@+id/search_nav_return"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="8dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:paddingHorizontal="12dp"
+            android:paddingVertical="8dp"
+            android:text="@string/search_return_position"
+            android:textColor="@color/primary_light"
+            android:textSize="13sp" />
+
+    </LinearLayout>
+
+    <!-- TTS悬浮控制条 -->
+    <LinearLayout
+        android:id="@+id/tts_mini_controller"
+        android:layout_width="wrap_content"
+        android:layout_height="48dp"
+        android:layout_gravity="bottom|center_horizontal"
+        android:layout_marginBottom="16dp"
+        android:background="@drawable/bg_tts_mini_controller"
+        android:elevation="12dp"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingHorizontal="12dp"
+        android:visibility="gone"
+        tools:visibility="visible">
+
+        <!-- 播放/暂停按钮 -->
+        <ImageButton
+            android:id="@+id/tts_mini_play_pause"
+            android:layout_width="36dp"
+            android:layout_height="36dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="@string/tts_play"
+            android:src="@android:drawable/ic_media_pause"
+            app:tint="@android:color/white" />
+
+        <!-- 停止按钮 -->
+        <ImageButton
+            android:id="@+id/tts_mini_stop"
+            android:layout_width="36dp"
+            android:layout_height="36dp"
+            android:layout_marginStart="8dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="@string/tts_stop"
+            android:src="@android:drawable/ic_delete"
+            app:tint="@android:color/white" />
+
+        <!-- 跳转到当前朗读位置按钮 -->
+        <ImageButton
+            android:id="@+id/tts_mini_locate"
+            android:layout_width="36dp"
+            android:layout_height="36dp"
+            android:layout_marginStart="8dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="跳转到朗读位置"
+            android:src="@android:drawable/ic_menu_mylocation"
+            app:tint="@android:color/white" />
+
+        <!-- 展开设置按钮 -->
+        <ImageButton
+            android:id="@+id/tts_mini_expand"
+            android:layout_width="36dp"
+            android:layout_height="36dp"
+            android:layout_marginStart="8dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="@string/tts_settings"
+            android:src="@android:drawable/ic_menu_more"
+            app:tint="@android:color/white" />
+
+    </LinearLayout>
+
 </androidx.coordinatorlayout.widget.CoordinatorLayout>

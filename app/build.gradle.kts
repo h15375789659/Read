@@ -7,6 +7,16 @@ android {
     namespace = "com.example.read"
     compileSdk = 36
 
+    // 签名配置
+    signingConfigs {
+        create("release") {
+            storeFile = file("../key/key")
+            storePassword = "123456"  // 请修改为你的密码
+            keyAlias = "key0"         // 请修改为你的别名
+            keyPassword = "123456"    // 请修改为你的密码
+        }
+    }
+
     defaultConfig {
         applicationId = "com.example.read"
         minSdk = 24
@@ -27,6 +37,7 @@ android {
     buildTypes {
         release {
             isMinifyEnabled = false
+            signingConfig = signingConfigs.getByName("release")
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"

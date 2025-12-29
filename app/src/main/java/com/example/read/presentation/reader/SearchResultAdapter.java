@@ -1,10 +1,13 @@
 package com.example.read.presentation.reader;
 
+import android.content.Context;
 import android.graphics.Typeface;
+import android.graphics.drawable.Drawable;
 import android.text.SpannableString;
 import android.text.Spanned;
 import android.text.style.ForegroundColorSpan;
 import android.text.style.StyleSpan;
+import android.util.TypedValue;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -128,9 +131,11 @@ public class SearchResultAdapter extends ListAdapter<SearchResult, SearchResultA
                 itemView.setBackgroundColor(
                         ContextCompat.getColor(itemView.getContext(), R.color.search_result_selected));
             } else {
-                itemView.setBackground(
-                        ContextCompat.getDrawable(itemView.getContext(), 
-                                android.R.attr.selectableItemBackground));
+                // 使用TypedValue正确解析selectableItemBackground属性
+                Context context = itemView.getContext();
+                TypedValue outValue = new TypedValue();
+                context.getTheme().resolveAttribute(android.R.attr.selectableItemBackground, outValue, true);
+                itemView.setBackgroundResource(outValue.resourceId);
             }
         }
 

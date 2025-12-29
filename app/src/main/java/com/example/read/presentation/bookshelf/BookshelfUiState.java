@@ -27,6 +27,9 @@ public class BookshelfUiState {
     // 批量模式状态
     private boolean isBatchMode;
     private Set<Long> selectedNovelIds;
+    
+    // 搜索前的分类（用于退出搜索时恢复）
+    private String previousCategory;
 
     public BookshelfUiState() {
         this.novels = new ArrayList<>();
@@ -41,6 +44,7 @@ public class BookshelfUiState {
         this.importErrorMessage = null;
         this.isBatchMode = false;
         this.selectedNovelIds = new HashSet<>();
+        this.previousCategory = null;
     }
 
     // 复制构造函数，用于创建不可变状态的副本
@@ -57,6 +61,7 @@ public class BookshelfUiState {
         this.importErrorMessage = other.importErrorMessage;
         this.isBatchMode = other.isBatchMode;
         this.selectedNovelIds = new HashSet<>(other.selectedNovelIds);
+        this.previousCategory = other.previousCategory;
     }
 
     // Getters
@@ -72,6 +77,7 @@ public class BookshelfUiState {
     public String getImportErrorMessage() { return importErrorMessage; }
     public boolean isBatchMode() { return isBatchMode; }
     public Set<Long> getSelectedNovelIds() { return selectedNovelIds; }
+    public String getPreviousCategory() { return previousCategory; }
     
     /**
      * 获取选中的小说数量
@@ -103,6 +109,7 @@ public class BookshelfUiState {
     public void setImportErrorMessage(String importErrorMessage) { this.importErrorMessage = importErrorMessage; }
     public void setBatchMode(boolean batchMode) { isBatchMode = batchMode; }
     public void setSelectedNovelIds(Set<Long> selectedNovelIds) { this.selectedNovelIds = selectedNovelIds != null ? selectedNovelIds : new HashSet<>(); }
+    public void setPreviousCategory(String previousCategory) { this.previousCategory = previousCategory; }
 
     /**
      * 创建一个带有加载状态的新状态

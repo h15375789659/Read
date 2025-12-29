@@ -1,6 +1,7 @@
 package com.example.read.domain.mapper;
 
 import com.example.read.data.entity.ChapterEntity;
+import com.example.read.data.entity.ChapterInfo;
 import com.example.read.domain.model.Chapter;
 
 import java.util.ArrayList;
@@ -32,6 +33,28 @@ public class ChapterMapper {
         
         return chapter;
     }
+    
+    /**
+     * ChapterInfo 转 Domain（不含content）
+     */
+    public static Chapter toDomain(ChapterInfo info) {
+        if (info == null) {
+            return null;
+        }
+        
+        Chapter chapter = new Chapter();
+        chapter.setId(info.getId());
+        chapter.setNovelId(info.getNovelId());
+        chapter.setTitle(info.getTitle());
+        chapter.setContent(null); // content 需要单独加载
+        chapter.setChapterIndex(info.getChapterIndex());
+        chapter.setWordCount(info.getWordCount());
+        chapter.setSourceUrl(info.getSourceUrl());
+        chapter.setSummary(info.getSummary());
+        chapter.setCreateTime(info.getCreateTime());
+        
+        return chapter;
+    }
 
     /**
      * Domain 转 Entity
@@ -44,7 +67,7 @@ public class ChapterMapper {
         ChapterEntity entity = new ChapterEntity(
             chapter.getNovelId(),
             chapter.getTitle(),
-            chapter.getContent(),
+            chapter.getContent() != null ? chapter.getContent() : "",
             chapter.getChapterIndex()
         );
         entity.setId(chapter.getId());
@@ -67,6 +90,21 @@ public class ChapterMapper {
         List<Chapter> chapters = new ArrayList<>();
         for (ChapterEntity entity : entities) {
             chapters.add(toDomain(entity));
+        }
+        return chapters;
+    }
+    
+    /**
+     * ChapterInfo 列表转 Domain 列表（不含content）
+     */
+    public static List<Chapter> toDomainListFromInfo(List<ChapterInfo> infos) {
+        if (infos == null) {
+            return new ArrayList<>();
+        }
+        
+        List<Chapter> chapters = new ArrayList<>();
+        for (ChapterInfo info : infos) {
+            chapters.add(toDomain(info));
         }
         return chapters;
     }

@@ -123,6 +123,100 @@ public class BookshelfViewModel extends ViewModel {
     }
 
     /**
+     * 进入搜索模式
+     * 保存当前分类，并加载所有小说供搜索
+     */
+    public void enterSearchMode() {
+        Log.d(TAG, "enterSearchMode 被调用");
+        
+        BookshelfUiState currentState = _uiState.getValue();
+        if (currentState == null) {
+            currentState = new BookshelfUiState();
+        }
+        BookshelfUiState newState = new BookshelfUiState(currentState);
+        
+        // 保存当前分类到 previousCategory
+        newState.setPreviousCategory(currentState.getSelectedCategory());
+        // 清空搜索关键词
+        newState.setSearchQuery("");
+        
+        _uiState.setValue(newState);
+        
+        // 加载所有小说
+        loadAllNovelsForSearch();
+    }
+    
+    /**
+     * 加载所有小说（用于搜索模式）
+     */
+    private void loadAllNovelsForSearch() {
+        Log.d(TAG, "loadAllNovelsForSearch 开始");
+        
+        BookshelfUiState currentState = _uiState.getValue();
+        if (currentState == null) {
+            currentState = new BookshelfUiState();
+        }
+        BookshelfUiState newState = new BookshelfUiState(currentState);
+        newState.setLoading(true);
+        newState.setError(null);
+        _uiState.setValue(newState);
+
+        // 移除旧的数据源
+        if (currentNovelsSource != null) {
+            novelsMediator.removeSource(currentNovelsSource);
+        }
+
+        // 加载所有小说
+        Log.d(TAG, "加载所有小说用于搜索");
+        currentNovelsSource = novelRepository.getAllNovels();
+
+        // 添加新的数据源
+        novelsMediator.addSource(currentNovelsSource, novels -> {
+            Log.d(TAG, "收到小说列表更新，数量: " + (novels != null ? novels.size() : 0));
+            novelsMediator.setValue(novels);
+            
+            BookshelfUiState state = _uiState.getValue();
+            if (state == null) {
+                state = new BookshelfUiState();
+            }
+            BookshelfUiState updatedState = new BookshelfUiState(state);
+            updatedState.setNovels(novels != null ? novels : new ArrayList<>());
+            updatedState.setLoading(false);
+            _uiState.setValue(updatedState);
+        });
+    }
+    
+    /**
+     * 退出搜索模式
+     * 恢复到之前的分类
+     */
+    public void exitSearchMode() {
+        Log.d(TAG, "exitSearchMode 被调用");
+        
+        BookshelfUiState currentState = _uiState.getValue();
+        if (currentState == null) {
+            currentState = new BookshelfUiState();
+        }
+        
+        // 获取之前保存的分类
+        String previousCategory = currentState.getPreviousCategory();
+        if (previousCategory == null || previousCategory.isEmpty()) {
+            previousCategory = "全部";
+        }
+        
+        Log.d(TAG, "恢复到之前的分类: " + previousCategory);
+        
+        BookshelfUiState newState = new BookshelfUiState(currentState);
+        newState.setSearchQuery("");
+        newState.setSelectedCategory(previousCategory);
+        newState.setPreviousCategory(null); // 清除保存的分类
+        _uiState.setValue(newState);
+        
+        // 根据之前的分类加载小说
+        loadNovelsWithCategory(previousCategory);
+    }
+
+    /**
      * 搜索小说
      * 验证需求：4.5 - 根据标题或作者关键词过滤显示结果
      * 
@@ -138,7 +232,7 @@ public class BookshelfViewModel extends ViewModel {
         }
         BookshelfUiState newState = new BookshelfUiState(currentState);
         newState.setSearchQuery(keyword);
-        newState.setSelectedCategory("全部"); // 搜索时重置分类
+        // 不再重置分类，保持 previousCategory 不变
         _uiState.setValue(newState);
         
         // 然后加载小说
@@ -193,7 +287,7 @@ public class BookshelfViewModel extends ViewModel {
     }
 
     /**
-     * 清除搜索
+     * 清除搜索（在搜索模式下清空搜索词，显示所有小说）
      */
     public void clearSearch() {
         Log.d(TAG, "clearSearch 被调用");
@@ -207,7 +301,12 @@ public class BookshelfViewModel extends ViewModel {
         newState.setSearchQuery("");
         _uiState.setValue(newState);
         
-        loadNovels();
+        // 如果处于搜索模式（previousCategory 不为空），加载所有小说
+        if (currentState.getPreviousCategory() != null && !currentState.getPreviousCategory().isEmpty()) {
+            loadAllNovelsForSearch();
+        } else {
+            loadNovels();
+        }
     }
 
     /**
@@ -368,6 +467,39 @@ public class BookshelfViewModel extends ViewModel {
                     error -> {
                         updateState(state -> {
                             state.setError("删除分类失败: " + error.getMessage());
+                        });
+                    }
+                )
+        );
+    }
+
+    /**
+     * 重命名分类
+     * 
+     * @param oldName 旧分类名
+     * @param newName 新分类名
+     */
+    public void renameCategory(String oldName, String newName) {
+        disposables.add(
+            io.reactivex.rxjava3.core.Completable.fromAction(() -> novelRepository.renameCategory(oldName, newName))
+                .subscribeOn(Schedulers.io())
+                .observeOn(AndroidSchedulers.mainThread())
+                .subscribe(
+                    () -> {
+                        // 重命名成功后，LiveData会自动更新分类列表
+                        // 如果当前选中的分类被重命名，需要更新selectedCategory并刷新列表
+                        BookshelfUiState currentState = _uiState.getValue();
+                        if (currentState != null && oldName.equals(currentState.getSelectedCategory())) {
+                            BookshelfUiState newState = new BookshelfUiState(currentState);
+                            newState.setSelectedCategory(newName);
+                            _uiState.setValue(newState);
+                            // 刷新小说列表以显示重命名后分类的小说
+                            loadNovelsWithCategory(newName);
+                        }
+                    },
+                    error -> {
+                        updateState(state -> {
+                            state.setError("重命名分类失败: " + error.getMessage());
                         });
                     }
                 )
