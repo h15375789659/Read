@@ -26,6 +26,7 @@ public class BookmarkMapper {
         bookmark.setChapterTitle(entity.getChapterTitle());
         bookmark.setPosition(entity.getPosition());
         bookmark.setNote(entity.getNote());
+        bookmark.setTextPreview(entity.getTextPreview());
         bookmark.setCreateTime(entity.getCreateTime());
         
         return bookmark;
@@ -47,6 +48,7 @@ public class BookmarkMapper {
         );
         entity.setId(bookmark.getId());
         entity.setNote(bookmark.getNote());
+        entity.setTextPreview(bookmark.getTextPreview());
         entity.setCreateTime(bookmark.getCreateTime());
         
         return entity;

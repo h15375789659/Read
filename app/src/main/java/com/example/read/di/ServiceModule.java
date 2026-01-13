@@ -12,9 +12,6 @@ import dagger.hilt.components.SingletonComponent;
 
 /**
  * Hilt模块 - 提供Service层的依赖注入绑定
- * 
- * 使用TTSServiceImpl（系统TTS）
- * 只查找中文语音，提供稳定的离线语音朗读功能
  */
 @Module
 @InstallIn(SingletonComponent.class)

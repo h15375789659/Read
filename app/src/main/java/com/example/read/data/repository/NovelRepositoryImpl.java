@@ -3,6 +3,7 @@ package com.example.read.data.repository;
 import androidx.lifecycle.LiveData;
 import androidx.lifecycle.Transformations;
 
+import com.example.read.data.dao.BlockedWordDao;
 import com.example.read.data.dao.CategoryDao;
 import com.example.read.data.dao.ChapterDao;
 import com.example.read.data.dao.NovelDao;
@@ -36,12 +37,14 @@ public class NovelRepositoryImpl implements NovelRepository {
     private final NovelDao novelDao;
     private final ChapterDao chapterDao;
     private final CategoryDao categoryDao;
+    private final BlockedWordDao blockedWordDao;
     
     @Inject
-    public NovelRepositoryImpl(NovelDao novelDao, ChapterDao chapterDao, CategoryDao categoryDao) {
+    public NovelRepositoryImpl(NovelDao novelDao, ChapterDao chapterDao, CategoryDao categoryDao, BlockedWordDao blockedWordDao) {
         this.novelDao = novelDao;
         this.chapterDao = chapterDao;
         this.categoryDao = categoryDao;
+        this.blockedWordDao = blockedWordDao;
     }
     
     @Override
@@ -70,7 +73,9 @@ public class NovelRepositoryImpl implements NovelRepository {
     
     @Override
     public void deleteNovel(long novelId) {
-        // 由于设置了外键级联删除，删除小说时会自动删除关联的章节
+        // 先删除关联的屏蔽词（因为移除了外键约束，需要手动清理）
+        blockedWordDao.deleteBlockedWordsByNovelId(novelId);
+        // 删除小说（由于设置了外键级联删除，会自动删除关联的章节）
         novelDao.deleteNovelById(novelId);
     }
     
@@ -232,26 +237,14 @@ public class NovelRepositoryImpl implements NovelRepository {
             return content;
         }
         
-        // 替换所有屏蔽词为星号
+        // 直接删除所有屏蔽词（用空字符串替换）
         for (String word : blockedWords) {
             if (word != null && !word.isEmpty()) {
-                String replacement = generateStars(word.length());
-                content = content.replace(word, replacement);
+                content = content.replace(word, "");
             }
         }
         
         return content;
-    }
-    
-    /**
-     * 生成指定长度的星号字符串
-     */
-    private String generateStars(int length) {
-        StringBuilder sb = new StringBuilder();
-        for (int i = 0; i < length; i++) {
-            sb.append("*");
-        }
-        return sb.toString();
     }
     
     @Override
@@ -300,8 +293,11 @@ public class NovelRepositoryImpl implements NovelRepository {
         if (novelIds == null || novelIds.isEmpty()) {
             return;
         }
-        // 批量删除小说（由于设置了外键级联删除，会自动删除关联的章节）
+        // 批量删除小说
         for (Long novelId : novelIds) {
+            // 先删除关联的屏蔽词（因为移除了外键约束，需要手动清理）
+            blockedWordDao.deleteBlockedWordsByNovelId(novelId);
+            // 删除小说（由于设置了外键级联删除，会自动删除关联的章节）
             novelDao.deleteNovelById(novelId);
         }
     }
@@ -326,5 +322,15 @@ public class NovelRepositoryImpl implements NovelRepository {
         categoryDao.renameCategory(oldName, newName);
         // 更新所有该分类下小说的分类字段
         novelDao.updateCategoryToDefault(oldName, newName);
+    }
+
+    @Override
+    public List<ChapterInfo> getChaptersWithSummary(long novelId) {
+        return chapterDao.getChaptersWithSummarySync(novelId);
+    }
+
+    @Override
+    public void deleteChapterSummary(long chapterId) {
+        chapterDao.deleteChapterSummary(chapterId);
     }
 }

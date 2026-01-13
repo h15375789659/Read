@@ -377,4 +377,23 @@
 
     </LinearLayout>
 
+    <!-- 分隔线 -->
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:layout_marginVertical="8dp"
+        android:background="@color/divider" />
+
+    <!-- 屏蔽词管理按钮 -->
+    <TextView
+        android:id="@+id/btn_blocked_word"
+        android:layout_width="match_parent"
+        android:layout_height="48dp"
+        android:background="?attr/selectableItemBackground"
+        android:drawableStart="@android:drawable/ic_menu_close_clear_cancel"
+        android:drawablePadding="12dp"
+        android:gravity="center_vertical"
+        android:text="@string/blocked_word_manage"
+        android:textSize="14sp" />
+
 </LinearLayout>

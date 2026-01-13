@@ -49,6 +49,7 @@ public class AppModule {
     
     /**
      * Provides WebParserService instance for parsing web novel content.
+     * 静态网页解析服务
      */
     @Provides
     @Singleton

@@ -12,6 +12,7 @@ import com.example.read.domain.repository.StatisticsRepository;
 
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Calendar;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
@@ -198,30 +199,77 @@ public class StatisticsViewModel extends ViewModel {
             List<ReadingStatistics> statistics, StatisticsPeriod period) {
         List<StatisticsUiState.ChartEntry> chartData = new ArrayList<>();
         
-        if (statistics == null || statistics.isEmpty()) {
-            return chartData;
+        // 将统计数据转换为日期->时长的映射
+        Map<Long, Long> dateToMinutes = new HashMap<>();
+        if (statistics != null) {
+            for (ReadingStatistics stat : statistics) {
+                // 将毫秒转换为分钟
+                long minutes = stat.getTotalDuration() / (1000 * 60);
+                dateToMinutes.put(stat.getDate(), minutes);
+            }
         }
         
-        SimpleDateFormat dateFormat;
+        // 根据周期生成完整的日期列表
+        Calendar calendar = Calendar.getInstance();
+        List<Long> dateList = new ArrayList<>();
+        List<String> labelList = new ArrayList<>();
+        
         switch (period) {
             case DAY:
-                dateFormat = new SimpleDateFormat("HH:mm", Locale.getDefault());
-                break;
+                // 日视图：显示今天的24小时（暂时保持原逻辑）
+                if (statistics != null && !statistics.isEmpty()) {
+                    int index = 0;
+                    for (ReadingStatistics stat : statistics) {
+                        String label = new SimpleDateFormat("HH:mm", Locale.getDefault())
+                                .format(new Date(stat.getDate()));
+                        float durationMinutes = stat.getTotalDuration() / (1000f * 60f);
+                        chartData.add(new StatisticsUiState.ChartEntry(index++, durationMinutes, label));
+                    }
+                }
+                return chartData;
+                
             case WEEK:
-                dateFormat = new SimpleDateFormat("E", Locale.getDefault());
+                // 周视图：显示过去7天，使用中文星期
+                String[] weekDays = {"周日", "周一", "周二", "周三", "周四", "周五", "周六"};
+                for (int i = 6; i >= 0; i--) {
+                    calendar.setTimeInMillis(System.currentTimeMillis());
+                    calendar.add(Calendar.DAY_OF_YEAR, -i);
+                    // 获取当天开始时间戳
+                    calendar.set(Calendar.HOUR_OF_DAY, 0);
+                    calendar.set(Calendar.MINUTE, 0);
+                    calendar.set(Calendar.SECOND, 0);
+                    calendar.set(Calendar.MILLISECOND, 0);
+                    
+                    dateList.add(calendar.getTimeInMillis());
+                    int dayOfWeek = calendar.get(Calendar.DAY_OF_WEEK) - 1; // 0=周日, 1=周一...
+                    labelList.add(weekDays[dayOfWeek]);
+                }
                 break;
+                
             case MONTH:
             default:
-                dateFormat = new SimpleDateFormat("MM/dd", Locale.getDefault());
+                // 月视图：显示过去30天
+                SimpleDateFormat monthFormat = new SimpleDateFormat("MM/dd", Locale.getDefault());
+                for (int i = 29; i >= 0; i--) {
+                    calendar.setTimeInMillis(System.currentTimeMillis());
+                    calendar.add(Calendar.DAY_OF_YEAR, -i);
+                    calendar.set(Calendar.HOUR_OF_DAY, 0);
+                    calendar.set(Calendar.MINUTE, 0);
+                    calendar.set(Calendar.SECOND, 0);
+                    calendar.set(Calendar.MILLISECOND, 0);
+                    
+                    dateList.add(calendar.getTimeInMillis());
+                    labelList.add(monthFormat.format(calendar.getTime()));
+                }
                 break;
         }
         
-        int index = 0;
-        for (ReadingStatistics stat : statistics) {
-            String label = dateFormat.format(new Date(stat.getDate()));
-            // 将毫秒转换为分钟，便于图表显示
-            float durationMinutes = stat.getTotalDuration() / (1000f * 60f);
-            chartData.add(new StatisticsUiState.ChartEntry(index++, durationMinutes, label));
+        // 生成图表数据，没有数据的日期显示0
+        for (int i = 0; i < dateList.size(); i++) {
+            long date = dateList.get(i);
+            String label = labelList.get(i);
+            long minutes = dateToMinutes.getOrDefault(date, 0L);
+            chartData.add(new StatisticsUiState.ChartEntry(i, minutes, label));
         }
         
         return chartData;
@@ -271,6 +319,23 @@ public class StatisticsViewModel extends ViewModel {
      */
     public void clearError() {
         updateState(state -> state.setError(null));
+    }
+
+    /**
+     * 生成测试数据（仅用于调试）
+     */
+    public void generateTestData() {
+        executorService.execute(() -> {
+            try {
+                statisticsRepository.generateTestData();
+                // 生成完成后刷新数据
+                StatisticsUiState currentState = _uiState.getValue();
+                StatisticsPeriod period = currentState != null ? currentState.getCurrentPeriod() : StatisticsPeriod.WEEK;
+                loadStatistics(period);
+            } catch (Exception e) {
+                updateState(state -> state.setError("生成测试数据失败: " + e.getMessage()));
+            }
+        });
     }
 
     /**

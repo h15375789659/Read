@@ -1,21 +1,22 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- 水平快速滚动条滑块 - 增大尺寸 -->
 <selector xmlns:android="http://schemas.android.com/apk/res/android">
     <item android:state_pressed="true">
         <shape android:shape="rectangle">
             <solid android:color="@color/primary_dark" />
-            <corners android:radius="4dp" />
+            <corners android:radius="12dp" />
             <size
-                android:width="48dp"
-                android:height="8dp" />
+                android:width="72dp"
+                android:height="24dp" />
         </shape>
     </item>
     <item>
         <shape android:shape="rectangle">
             <solid android:color="@color/primary" />
-            <corners android:radius="4dp" />
+            <corners android:radius="12dp" />
             <size
-                android:width="48dp"
-                android:height="8dp" />
+                android:width="72dp"
+                android:height="24dp" />
         </shape>
     </item>
 </selector>

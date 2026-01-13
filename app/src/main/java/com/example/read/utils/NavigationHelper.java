@@ -8,9 +8,11 @@ import android.os.Bundle;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
+import com.example.read.presentation.blockedword.BlockedWordActivity;
 import com.example.read.presentation.bookshelf.BookshelfActivity;
 import com.example.read.presentation.parser.WebParserActivity;
 import com.example.read.presentation.reader.ReaderActivity;
+import com.example.read.presentation.statistics.StatisticsActivity;
 
 /**
  * 导航辅助类 - 统一管理Activity间的导航和数据传递
@@ -201,6 +203,34 @@ public final class NavigationHelper {
     public static void navigateToWebParserForResult(@NonNull Activity activity, int requestCode) {
         Intent intent = new Intent(activity, WebParserActivity.class);
         activity.startActivityForResult(intent, requestCode);
+    }
+
+    // ==================== 屏蔽词管理导航 ====================
+
+    /**
+     * 导航到屏蔽词管理界面
+     * 
+     * @param context    上下文
+     * @param novelId    小说ID
+     * @param novelTitle 小说标题
+     */
+    public static void navigateToBlockedWord(@NonNull Context context, long novelId, @Nullable String novelTitle) {
+        Intent intent = new Intent(context, BlockedWordActivity.class);
+        intent.putExtra(BlockedWordActivity.EXTRA_NOVEL_ID, novelId);
+        intent.putExtra(BlockedWordActivity.EXTRA_NOVEL_TITLE, novelTitle);
+        context.startActivity(intent);
+    }
+
+    // ==================== 阅读统计导航 ====================
+
+    /**
+     * 导航到阅读统计界面
+     * 
+     * @param context 上下文
+     */
+    public static void navigateToStatistics(@NonNull Context context) {
+        Intent intent = new Intent(context, StatisticsActivity.class);
+        context.startActivity(intent);
     }
 
     // ==================== Intent数据提取 ====================

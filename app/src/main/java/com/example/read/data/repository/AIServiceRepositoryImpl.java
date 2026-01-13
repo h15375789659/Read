@@ -135,22 +135,35 @@ public class AIServiceRepositoryImpl implements AIServiceRepository {
      */
     @Override
     public Single<String> getOrGenerateSummary(Chapter chapter) {
-        return Single.fromCallable(() -> {
-            // 首先检查缓存
-            String cachedSummary = getCachedSummary(chapter.getId());
-            if (cachedSummary != null && !cachedSummary.isEmpty()) {
-                return cachedSummary;
+        return Single.<String>create(emitter -> {
+            try {
+                // 首先检查缓存
+                String cachedSummary = getCachedSummary(chapter.getId());
+                if (cachedSummary != null && !cachedSummary.isEmpty()) {
+                    emitter.onSuccess(cachedSummary);
+                    return;
+                }
+                
+                // 没有缓存，需要生成新摘要
+                // 检查章节内容
+                if (chapter.getContent() == null || chapter.getContent().trim().isEmpty()) {
+                    emitter.onError(new Exception("章节内容为空"));
+                    return;
+                }
+                
+                // 生成新摘要
+                generateSummary(chapter.getContent())
+                        .subscribe(
+                                summary -> {
+                                    // 保存到缓存
+                                    saveSummaryCache(chapter.getId(), summary);
+                                    emitter.onSuccess(summary);
+                                },
+                                emitter::onError
+                        );
+            } catch (Exception e) {
+                emitter.onError(e);
             }
-            return null;
-        }).subscribeOn(Schedulers.io())
-          .flatMap(cached -> {
-              if (cached != null) {
-                  // 返回缓存的摘要
-                  return Single.just(cached);
-              }
-              // 生成新摘要并保存
-              return generateSummary(chapter.getContent())
-                      .doOnSuccess(summary -> saveSummaryCache(chapter.getId(), summary));
-          });
+        }).subscribeOn(Schedulers.io());
     }
 }

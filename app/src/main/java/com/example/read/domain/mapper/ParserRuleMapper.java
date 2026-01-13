@@ -29,6 +29,7 @@ public class ParserRuleMapper {
         rule.setContentSelector(entity.getContentSelector());
         rule.setRemoveSelectorsFromString(entity.getRemoveSelectors());
         rule.setCreateTime(entity.getCreateTime());
+        rule.setDynamic(entity.isDynamic());
         
         return rule;
     }
@@ -52,6 +53,7 @@ public class ParserRuleMapper {
         entity.setId(rule.getId());
         entity.setRemoveSelectors(rule.getRemoveSelectorsAsString());
         entity.setCreateTime(rule.getCreateTime());
+        entity.setDynamic(rule.isDynamic());
         
         return entity;
     }

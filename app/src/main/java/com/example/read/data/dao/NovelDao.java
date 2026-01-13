@@ -85,4 +85,10 @@ public interface NovelDao {
     @Query("SELECT * FROM novels WHERE sourceUrl = :sourceUrl LIMIT 1")
     NovelEntity getNovelBySourceUrl(String sourceUrl);
 
+    /**
+     * 同步获取所有小说（用于生成测试数据）
+     */
+    @Query("SELECT * FROM novels")
+    List<NovelEntity> getAllNovelsSync();
+
 }

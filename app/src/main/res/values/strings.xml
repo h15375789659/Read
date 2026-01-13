@@ -204,6 +204,7 @@
     <string name="bookmark_chapter_info">当前章节：%1$s</string>
     <string name="bookmark_page_info">第 %1$d 页</string>
     <string name="bookmark_delete_confirm">确定要删除这个书签吗？</string>
+    <string name="bookmark_no_preview">旧书签（无预览）</string>
     <string name="cancel">取消</string>
     <string name="save">保存</string>
     <string name="confirm">确定</string>
@@ -222,4 +223,52 @@
     <string name="tts_paused">已暂停</string>
     <string name="tts_no_paragraphs">当前页面没有可朗读的内容</string>
     <string name="tts_settings">朗读设置</string>
+
+    <!-- 屏蔽词管理 -->
+    <string name="blocked_word_title">屏蔽词管理</string>
+    <string name="blocked_word_add">添加屏蔽词</string>
+    <string name="blocked_word_add_title">添加屏蔽词</string>
+    <string name="blocked_word_input_hint">请输入要屏蔽的词汇</string>
+    <string name="blocked_word_empty">暂无屏蔽词\n点击右下角按钮添加</string>
+    <string name="blocked_word_added">屏蔽词已添加</string>
+    <string name="blocked_word_deleted">屏蔽词已删除</string>
+    <string name="blocked_word_exists">该屏蔽词已存在</string>
+    <string name="blocked_word_empty_input">屏蔽词不能为空</string>
+    <string name="blocked_word_delete_confirm">确定要删除这个屏蔽词吗？</string>
+    <string name="blocked_word_manage">屏蔽词管理</string>
+
+    <!-- 阅读统计 -->
+    <string name="statistics_title">阅读统计</string>
+    <string name="statistics_total_duration">总阅读时长</string>
+    <string name="statistics_total_chars">总阅读字数</string>
+    <string name="statistics_period_day">日</string>
+    <string name="statistics_period_week">周</string>
+    <string name="statistics_period_month">月</string>
+    <string name="statistics_duration_chart">阅读时长</string>
+    <string name="statistics_ranking">阅读排行</string>
+    <string name="statistics_no_data">暂无阅读记录</string>
+    <string name="statistics_duration_minutes">分钟</string>
+    <string name="statistics_unit_minutes">单位：分钟</string>
+    <string name="menu_statistics">阅读统计</string>
+
+    <!-- AI摘要功能 -->
+    <string name="summary_title">章节摘要</string>
+    <string name="summary_generating">正在生成摘要...</string>
+    <string name="summary_generate">生成摘要</string>
+    <string name="summary_regenerate">重新生成</string>
+    <string name="summary_error">生成失败</string>
+    <string name="summary_retry">重试</string>
+    <string name="summary_close">关闭</string>
+    <string name="summary_has_cache">已有摘要</string>
+    <string name="summary_no_cache">未生成</string>
+    <string name="summary_chapter_name">%1$s</string>
+    
+    <!-- 摘要管理 -->
+    <string name="summary_manager_title">摘要管理</string>
+    <string name="summary_manager_count">共%1$d条摘要</string>
+    <string name="summary_manager_empty">暂无摘要\n点击章节列表中的摘要按钮生成</string>
+    <string name="summary_delete">删除摘要</string>
+    <string name="summary_delete_confirm">确定要删除这条摘要吗？</string>
+    <string name="summary_deleted">摘要已删除</string>
+    <string name="summary_jump_to_chapter">跳转章节</string>
 </resources>

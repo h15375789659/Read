@@ -466,7 +466,8 @@ public class BookshelfActivity extends AppCompatActivity {
     private void showMoreMenu() {
         String[] menuItems = {
                 getString(R.string.menu_manage_categories),
-                getString(R.string.menu_batch_manage)
+                getString(R.string.menu_batch_manage),
+                getString(R.string.menu_statistics)
         };
 
         new AlertDialog.Builder(this)
@@ -475,6 +476,9 @@ public class BookshelfActivity extends AppCompatActivity {
                         showManageCategoriesDialog();
                     } else if (which == 1) {
                         viewModel.enterBatchMode();
+                    } else if (which == 2) {
+                        // 跳转到阅读统计界面
+                        NavigationHelper.navigateToStatistics(this);
                     }
                 })
                 .show();

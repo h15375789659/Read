@@ -3,6 +3,7 @@ package com.example.read.presentation.reader;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.ImageButton;
 import android.widget.ImageView;
 import android.widget.TextView;
 
@@ -16,22 +17,28 @@ import com.example.read.domain.model.Chapter;
 import com.example.read.utils.PinyinHelper;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 /**
  * 章节列表适配器
  * 用于在章节列表对话框中显示章节
  * 支持章节搜索过滤（中文、拼音全拼、拼音首字母）
+ * 支持AI摘要按钮显示和点击
  */
 public class ChapterAdapter extends ListAdapter<Chapter, ChapterAdapter.ChapterViewHolder> {
 
     private long currentChapterId = -1;
     private OnChapterClickListener onChapterClickListener;
+    private OnSummaryClickListener onSummaryClickListener;
     
     // 原始章节列表（用于过滤）
     private List<Chapter> originalList = new ArrayList<>();
     // 当前搜索关键词
     private String currentFilter = "";
+    // 已有摘要的章节ID集合
+    private Set<Long> chaptersWithSummary = new HashSet<>();
 
     public ChapterAdapter() {
         super(DIFF_CALLBACK);
@@ -72,6 +79,39 @@ public class ChapterAdapter extends ListAdapter<Chapter, ChapterAdapter.ChapterV
      */
     public void setOnChapterClickListener(OnChapterClickListener listener) {
         this.onChapterClickListener = listener;
+    }
+    
+    /**
+     * 设置摘要按钮点击监听器
+     */
+    public void setOnSummaryClickListener(OnSummaryClickListener listener) {
+        this.onSummaryClickListener = listener;
+    }
+    
+    /**
+     * 设置已有摘要的章节ID集合
+     */
+    public void setChaptersWithSummary(Set<Long> chapterIds) {
+        this.chaptersWithSummary = chapterIds != null ? chapterIds : new HashSet<>();
+        notifyDataSetChanged();
+    }
+    
+    /**
+     * 更新单个章节的摘要状态
+     */
+    public void updateSummaryStatus(long chapterId, boolean hasSummary) {
+        if (hasSummary) {
+            chaptersWithSummary.add(chapterId);
+        } else {
+            chaptersWithSummary.remove(chapterId);
+        }
+        // 找到对应的位置并刷新
+        for (int i = 0; i < getItemCount(); i++) {
+            if (getItem(i).getId() == chapterId) {
+                notifyItemChanged(i);
+                break;
+            }
+        }
     }
     
     /**
@@ -154,6 +194,13 @@ public class ChapterAdapter extends ListAdapter<Chapter, ChapterAdapter.ChapterV
     public interface OnChapterClickListener {
         void onChapterClick(Chapter chapter);
     }
+    
+    /**
+     * 摘要按钮点击监听器接口
+     */
+    public interface OnSummaryClickListener {
+        void onSummaryClick(Chapter chapter, boolean hasSummary);
+    }
 
     /**
      * 章节ViewHolder
@@ -161,18 +208,29 @@ public class ChapterAdapter extends ListAdapter<Chapter, ChapterAdapter.ChapterV
     class ChapterViewHolder extends RecyclerView.ViewHolder {
         private final TextView indexText;
         private final TextView titleText;
+        private final ImageButton btnSummary;
         private final ImageView currentIndicator;
 
         ChapterViewHolder(@NonNull View itemView) {
             super(itemView);
             indexText = itemView.findViewById(R.id.chapter_index_text);
             titleText = itemView.findViewById(R.id.chapter_title_text);
+            btnSummary = itemView.findViewById(R.id.btn_summary);
             currentIndicator = itemView.findViewById(R.id.current_indicator);
 
             itemView.setOnClickListener(v -> {
                 int position = getAdapterPosition();
                 if (position != RecyclerView.NO_POSITION && onChapterClickListener != null) {
                     onChapterClickListener.onChapterClick(getItem(position));
+                }
+            });
+            
+            btnSummary.setOnClickListener(v -> {
+                int position = getAdapterPosition();
+                if (position != RecyclerView.NO_POSITION && onSummaryClickListener != null) {
+                    Chapter chapter = getItem(position);
+                    boolean hasSummary = chaptersWithSummary.contains(chapter.getId());
+                    onSummaryClickListener.onSummaryClick(chapter, hasSummary);
                 }
             });
         }
@@ -187,6 +245,14 @@ public class ChapterAdapter extends ListAdapter<Chapter, ChapterAdapter.ChapterV
                 titleText.setTextColor(itemView.getContext().getResources().getColor(R.color.primary, null));
             } else {
                 titleText.setTextColor(itemView.getContext().getResources().getColor(R.color.text_primary, null));
+            }
+            
+            // 摘要按钮状态：已有摘要显示主题色，未生成显示灰色
+            boolean hasSummary = chaptersWithSummary.contains(chapter.getId());
+            if (hasSummary) {
+                btnSummary.setColorFilter(itemView.getContext().getResources().getColor(R.color.primary, null));
+            } else {
+                btnSummary.setColorFilter(itemView.getContext().getResources().getColor(R.color.text_hint, null));
             }
         }
     }

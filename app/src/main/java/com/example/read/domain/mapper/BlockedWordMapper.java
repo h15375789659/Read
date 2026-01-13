@@ -21,6 +21,7 @@ public class BlockedWordMapper {
         
         BlockedWord word = new BlockedWord();
         word.setId(entity.getId());
+        word.setNovelId(entity.getNovelId());
         word.setWord(entity.getWord());
         word.setCreateTime(entity.getCreateTime());
         
@@ -35,7 +36,7 @@ public class BlockedWordMapper {
             return null;
         }
         
-        BlockedWordEntity entity = new BlockedWordEntity(word.getWord());
+        BlockedWordEntity entity = new BlockedWordEntity(word.getNovelId(), word.getWord());
         entity.setId(word.getId());
         entity.setCreateTime(word.getCreateTime());
         

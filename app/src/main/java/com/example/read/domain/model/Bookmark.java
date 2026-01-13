@@ -10,6 +10,7 @@ public class Bookmark {
     private String chapterTitle;
     private int position;
     private String note;
+    private String textPreview;  // 文本预览（书签位置附近的文本）
     private long createTime;
 
     public Bookmark() {}
@@ -29,6 +30,7 @@ public class Bookmark {
     public String getChapterTitle() { return chapterTitle; }
     public int getPosition() { return position; }
     public String getNote() { return note; }
+    public String getTextPreview() { return textPreview; }
     public long getCreateTime() { return createTime; }
 
     // Setters
@@ -38,5 +40,6 @@ public class Bookmark {
     public void setChapterTitle(String chapterTitle) { this.chapterTitle = chapterTitle; }
     public void setPosition(int position) { this.position = position; }
     public void setNote(String note) { this.note = note; }
+    public void setTextPreview(String textPreview) { this.textPreview = textPreview; }
     public void setCreateTime(long createTime) { this.createTime = createTime; }
 }

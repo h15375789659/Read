@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
@@ -30,16 +31,27 @@
         android:textSize="15sp"
         tools:text="第一章 开始" />
 
+    <!-- 摘要按钮 -->
+    <ImageButton
+        android:id="@+id/btn_summary"
+        android:layout_width="32dp"
+        android:layout_height="32dp"
+        android:layout_marginStart="4dp"
+        android:background="?attr/selectableItemBackgroundBorderless"
+        android:contentDescription="@string/summary_generate"
+        android:src="@drawable/ic_summary"
+        app:tint="@color/text_hint"
+        tools:ignore="TouchTargetSizeCheck" />
+
     <!-- 当前阅读标记 -->
     <ImageView
         android:id="@+id/current_indicator"
         android:layout_width="16dp"
         android:layout_height="16dp"
-        android:layout_marginStart="8dp"
+        android:layout_marginStart="4dp"
         android:src="@android:drawable/ic_media_play"
         android:visibility="gone"
         app:tint="@color/primary"
-        xmlns:app="http://schemas.android.com/apk/res-auto"
         tools:visibility="visible" />
 
 </LinearLayout>

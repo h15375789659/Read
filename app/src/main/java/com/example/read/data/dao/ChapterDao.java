@@ -52,8 +52,26 @@ public interface ChapterDao {
     @Query("SELECT COUNT(*) FROM chapters WHERE novelId = :novelId")
     int getChapterCount(long novelId);
 
+    /**
+     * 获取小说总字数
+     */
+    @Query("SELECT COALESCE(SUM(wordCount), 0) FROM chapters WHERE novelId = :novelId")
+    long getTotalWordCount(long novelId);
+
     @Query("UPDATE chapters SET summary = :summary WHERE id = :chapterId")
     void updateChapterSummary(long chapterId, String summary);
+
+    /**
+     * 获取有摘要的章节列表（不含content）
+     */
+    @Query("SELECT id, novelId, title, chapterIndex, wordCount, sourceUrl, summary, createTime FROM chapters WHERE novelId = :novelId AND summary IS NOT NULL AND summary != '' ORDER BY chapterIndex")
+    List<ChapterInfo> getChaptersWithSummarySync(long novelId);
+
+    /**
+     * 删除章节摘要
+     */
+    @Query("UPDATE chapters SET summary = NULL WHERE id = :chapterId")
+    void deleteChapterSummary(long chapterId);
 
     @Query("SELECT * FROM chapters WHERE novelId = :novelId AND chapterIndex = :index")
     ChapterEntity getChapterByIndex(long novelId, int index);

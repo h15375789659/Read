@@ -89,10 +89,15 @@ public class BookmarkAdapter extends ListAdapter<Bookmark, BookmarkAdapter.Bookm
             // 设置章节标题
             tvChapterTitle.setText(bookmark.getChapterTitle());
 
-            // 设置页数信息（position + 1，因为页码从0开始）
-            int pageNumber = bookmark.getPosition() + 1;
-            String pageInfo = itemView.getContext().getString(R.string.bookmark_page_info, pageNumber);
-            tvPageInfo.setText(pageInfo);
+            // 设置文本预览（如果有）或显示"无预览"
+            String textPreview = bookmark.getTextPreview();
+            if (textPreview != null && !textPreview.trim().isEmpty()) {
+                // 显示文本预览，用引号包裹
+                tvPageInfo.setText("\"" + textPreview + "\"");
+            } else {
+                // 旧书签没有文本预览，显示提示
+                tvPageInfo.setText(itemView.getContext().getString(R.string.bookmark_no_preview));
+            }
 
             // 设置备注（如果有）
             String note = bookmark.getNote();

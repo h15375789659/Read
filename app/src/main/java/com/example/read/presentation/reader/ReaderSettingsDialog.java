@@ -54,6 +54,9 @@ public class ReaderSettingsDialog extends Dialog {
     private ImageView themeNightCheck;
     private ImageView themeEyeCareCheck;
     private ImageView themeCustomCheck;
+    
+    // 屏蔽词管理按钮
+    private TextView btnBlockedWord;
 
     // 当前设置值
     private float currentFontSize = 18f;
@@ -62,6 +65,10 @@ public class ReaderSettingsDialog extends Dialog {
     private PageMode currentPageMode = PageMode.SCROLL;
     private PageAnimation currentPageAnimation = PageAnimation.SLIDE;
     private ReaderFont currentFont = ReaderFont.DEFAULT;
+    
+    // 小说信息（用于屏蔽词管理）
+    private long novelId = -1;
+    private String novelTitle = "";
 
     // 回调接口
     private OnSettingsChangeListener listener;
@@ -106,6 +113,9 @@ public class ReaderSettingsDialog extends Dialog {
         themeNightCheck = findViewById(R.id.theme_night_check);
         themeEyeCareCheck = findViewById(R.id.theme_eye_care_check);
         themeCustomCheck = findViewById(R.id.theme_custom_check);
+        
+        // 屏蔽词管理按钮
+        btnBlockedWord = findViewById(R.id.btn_blocked_word);
         
         // 翻页设置
         pageModeSpinner = findViewById(R.id.page_mode_spinner);
@@ -261,6 +271,14 @@ public class ReaderSettingsDialog extends Dialog {
 
             @Override
             public void onNothingSelected(AdapterView<?> parent) {}
+        });
+        
+        // 屏蔽词管理按钮点击
+        btnBlockedWord.setOnClickListener(v -> {
+            if (listener != null) {
+                listener.onBlockedWordManageClick(novelId, novelTitle);
+            }
+            dismiss();
         });
     }
 
@@ -481,6 +499,14 @@ public class ReaderSettingsDialog extends Dialog {
     }
 
     /**
+     * 设置小说信息（用于屏蔽词管理）
+     */
+    public void setNovelInfo(long novelId, String novelTitle) {
+        this.novelId = novelId;
+        this.novelTitle = novelTitle;
+    }
+
+    /**
      * 设置设置变更监听器
      */
     public void setOnSettingsChangeListener(OnSettingsChangeListener listener) {
@@ -529,5 +555,11 @@ public class ReaderSettingsDialog extends Dialog {
          * 字体变更
          */
         void onFontChanged(ReaderFont font);
+        
+        /**
+         * 屏蔽词管理按钮点击
+         * 验证需求：11.1
+         */
+        default void onBlockedWordManageClick(long novelId, String novelTitle) {}
     }
 }

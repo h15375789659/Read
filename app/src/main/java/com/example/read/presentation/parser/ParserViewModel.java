@@ -26,8 +26,6 @@ import io.reactivex.rxjava3.schedulers.Schedulers;
 
 /**
  * 网站解析ViewModel - 管理网站解析界面的业务逻辑和UI状态
- * 
- * 验证需求：2.1, 2.2, 2.3, 2.4
  */
 @HiltViewModel
 public class ParserViewModel extends ViewModel {
@@ -127,7 +125,6 @@ public class ParserViewModel extends ViewModel {
 
     /**
      * 解析小说元数据
-     * 验证需求：2.2 - 访问网页并提取小说元数据（标题、作者、简介）
      */
     public void parseNovelMetadata() {
         ParserUiState currentState = _uiState.getValue();
@@ -136,7 +133,6 @@ public class ParserViewModel extends ViewModel {
         String url = currentState.getUrl();
         ParserRule rule = currentState.getSelectedRule();
 
-        // 验证输入
         if (!currentState.isUrlValid()) {
             updateState(state -> state.setError("请输入有效的URL"));
             return;
@@ -147,7 +143,6 @@ public class ParserViewModel extends ViewModel {
             return;
         }
 
-        // 开始解析
         updateState(state -> {
             state.setParsing(true);
             state.setError(null);
@@ -163,7 +158,6 @@ public class ParserViewModel extends ViewModel {
                                 state.setNovelMetadata(metadata);
                                 state.setParsing(false);
                             });
-                            // 自动解析章节列表
                             parseChapterList();
                         },
                         error -> {
@@ -179,7 +173,6 @@ public class ParserViewModel extends ViewModel {
 
     /**
      * 解析章节列表
-     * 验证需求：2.3 - 提取所有章节的标题和链接
      */
     public void parseChapterList() {
         ParserUiState currentState = _uiState.getValue();

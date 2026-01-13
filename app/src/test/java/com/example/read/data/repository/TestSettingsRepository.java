@@ -114,6 +114,39 @@ public class TestSettingsRepository implements SettingsRepository {
     }
 
     @Override
+    public String getPageMode() {
+        Object value = storage.get("page_mode");
+        return value != null ? (String) value : "scroll";
+    }
+
+    @Override
+    public void setPageMode(String modeId) {
+        storage.put("page_mode", modeId);
+    }
+
+    @Override
+    public String getPageAnimation() {
+        Object value = storage.get("page_animation");
+        return value != null ? (String) value : "slide";
+    }
+
+    @Override
+    public void setPageAnimation(String animationId) {
+        storage.put("page_animation", animationId);
+    }
+
+    @Override
+    public String getFontFamily() {
+        Object value = storage.get("font_family");
+        return value != null ? (String) value : "default";
+    }
+
+    @Override
+    public void setFontFamily(String fontId) {
+        storage.put("font_family", fontId);
+    }
+
+    @Override
     public void resetToDefaults() {
         storage.put(KEY_FONT_SIZE, DEFAULT_FONT_SIZE);
         storage.put(KEY_LINE_SPACING, DEFAULT_LINE_SPACING);

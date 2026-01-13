@@ -17,9 +17,13 @@ public class ParserRule {
     private String contentSelector;
     private List<String> removeSelectors;
     private long createTime;
+    
+    // 是否强制使用动态解析（WebView）
+    private boolean isDynamic;
 
     public ParserRule() {
         this.removeSelectors = new ArrayList<>();
+        this.isDynamic = false;
     }
 
     public ParserRule(String name, String domain, String chapterListSelector,
@@ -45,6 +49,7 @@ public class ParserRule {
     public String getContentSelector() { return contentSelector; }
     public List<String> getRemoveSelectors() { return removeSelectors; }
     public long getCreateTime() { return createTime; }
+    public boolean isDynamic() { return isDynamic; }
 
     // Setters
     public void setId(long id) { this.id = id; }
@@ -56,6 +61,7 @@ public class ParserRule {
     public void setContentSelector(String contentSelector) { this.contentSelector = contentSelector; }
     public void setRemoveSelectors(List<String> removeSelectors) { this.removeSelectors = removeSelectors; }
     public void setCreateTime(long createTime) { this.createTime = createTime; }
+    public void setDynamic(boolean isDynamic) { this.isDynamic = isDynamic; }
 
     /**
      * 从逗号分隔的字符串设置移除选择器列表

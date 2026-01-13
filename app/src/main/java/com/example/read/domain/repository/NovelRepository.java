@@ -138,4 +138,17 @@ public interface NovelRepository {
      * @param newName 新分类名
      */
     void renameCategory(String oldName, String newName);
+
+    /**
+     * 获取有摘要的章节列表
+     * @param novelId 小说ID
+     * @return 有摘要的章节信息列表
+     */
+    List<com.example.read.data.entity.ChapterInfo> getChaptersWithSummary(long novelId);
+
+    /**
+     * 删除章节摘要
+     * @param chapterId 章节ID
+     */
+    void deleteChapterSummary(long chapterId);
 }

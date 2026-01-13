@@ -18,6 +18,7 @@ import com.example.read.domain.model.ReadingPosition;
 import com.example.read.domain.model.SearchResult;
 import com.example.read.domain.model.TTSState;
 import com.example.read.domain.model.VoiceInfo;
+import com.example.read.domain.repository.AIServiceRepository;
 import com.example.read.domain.repository.BlockedWordRepository;
 import com.example.read.domain.repository.BookmarkRepository;
 import com.example.read.domain.repository.NovelRepository;
@@ -27,13 +28,18 @@ import com.example.read.domain.repository.ThemeRepository;
 import com.example.read.domain.repository.TTSRepository;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 import javax.inject.Inject;
 
 import dagger.hilt.android.lifecycle.HiltViewModel;
+import io.reactivex.rxjava3.android.schedulers.AndroidSchedulers;
+import io.reactivex.rxjava3.disposables.CompositeDisposable;
+import io.reactivex.rxjava3.disposables.Disposable;
 
 /**
  * 阅读器ViewModel - 管理阅读界面的业务逻辑和UI状态
@@ -50,7 +56,11 @@ public class ReaderViewModel extends ViewModel {
     private final StatisticsRepository statisticsRepository;
     private final TTSRepository ttsRepository;
     private final BookmarkRepository bookmarkRepository;
+    private final AIServiceRepository aiServiceRepository;
     private final ExecutorService executorService;
+    
+    // RxJava订阅管理
+    private final CompositeDisposable compositeDisposable = new CompositeDisposable();
 
     // UI状态
     private final MutableLiveData<ReaderUiState> _uiState = new MutableLiveData<>(new ReaderUiState());
@@ -74,7 +84,8 @@ public class ReaderViewModel extends ViewModel {
             BlockedWordRepository blockedWordRepository,
             StatisticsRepository statisticsRepository,
             TTSRepository ttsRepository,
-            BookmarkRepository bookmarkRepository) {
+            BookmarkRepository bookmarkRepository,
+            AIServiceRepository aiServiceRepository) {
         this.novelRepository = novelRepository;
         this.settingsRepository = settingsRepository;
         this.themeRepository = themeRepository;
@@ -82,6 +93,7 @@ public class ReaderViewModel extends ViewModel {
         this.statisticsRepository = statisticsRepository;
         this.ttsRepository = ttsRepository;
         this.bookmarkRepository = bookmarkRepository;
+        this.aiServiceRepository = aiServiceRepository;
         this.executorService = Executors.newSingleThreadExecutor();
         
         // 初始化设置
@@ -220,11 +232,15 @@ public class ReaderViewModel extends ViewModel {
     }
 
     /**
-     * 加载屏蔽词列表
+     * 加载屏蔽词列表（按小说ID）
      */
     private void loadBlockedWords() {
+        if (currentNovelId <= 0) {
+            blockedWords = new ArrayList<>();
+            return;
+        }
         executorService.execute(() -> {
-            blockedWords = blockedWordRepository.getAllBlockedWordStrings();
+            blockedWords = blockedWordRepository.getBlockedWordStringsByNovelId(currentNovelId);
         });
     }
 
@@ -247,6 +263,9 @@ public class ReaderViewModel extends ViewModel {
 
         executorService.execute(() -> {
             try {
+                // 先同步加载屏蔽词（必须在加载章节内容之前）
+                blockedWords = blockedWordRepository.getBlockedWordStringsByNovelId(novelId);
+                
                 // 加载小说信息
                 Novel novel = novelRepository.getNovelById(novelId);
                 if (novel == null) {
@@ -1101,12 +1120,15 @@ public class ReaderViewModel extends ViewModel {
     // ==================== 屏蔽词过滤 ====================
 
     /**
-     * 刷新屏蔽词并重新应用
+     * 刷新屏蔽词并重新应用（按小说ID）
      * 验证需求：11.5 - 修改后立即刷新当前页面应用新的屏蔽规则
      */
     public void refreshBlockedWords() {
+        if (currentNovelId <= 0) {
+            return;
+        }
         executorService.execute(() -> {
-            blockedWords = blockedWordRepository.getAllBlockedWordStrings();
+            blockedWords = blockedWordRepository.getBlockedWordStringsByNovelId(currentNovelId);
             
             // 重新应用屏蔽词到当前章节
             ReaderUiState currentState = _uiState.getValue();
@@ -1319,10 +1341,11 @@ public class ReaderViewModel extends ViewModel {
      * 验证需求：7.2 - 允许用户为书签添加备注文字
      * 
      * @param note 书签备注（可选）
-     * @param position 当前阅读位置
+     * @param position 当前阅读位置（字符位置）
+     * @param textPreview 文本预览（书签位置附近的文本）
      * @return 是否添加成功
      */
-    public void addBookmark(String note, int position) {
+    public void addBookmark(String note, int position, String textPreview) {
         ReaderUiState currentState = _uiState.getValue();
         if (currentState == null || currentState.getCurrentChapter() == null) {
             return;
@@ -1339,6 +1362,7 @@ public class ReaderViewModel extends ViewModel {
                         position
                 );
                 bookmark.setNote(note);
+                bookmark.setTextPreview(textPreview);
                 
                 long id = bookmarkRepository.insertBookmark(bookmark);
                 if (id > 0) {
@@ -1411,6 +1435,200 @@ public class ReaderViewModel extends ViewModel {
         updateState(state -> state.setJumpToPosition(-1));
     }
 
+    // ==================== AI摘要功能 ====================
+
+    /**
+     * 获取章节摘要（优先使用缓存）
+     * 验证需求：8.1, 8.4 - 调用AI服务API或使用缓存
+     * 
+     * @param chapter 章节对象
+     * @param callback 结果回调
+     */
+    public void getChapterSummary(Chapter chapter, SummaryCallback callback) {
+        if (chapter == null) {
+            callback.onError("章节不存在");
+            return;
+        }
+
+        // 在后台线程检查缓存和生成摘要
+        executorService.execute(() -> {
+            try {
+                // 先检查缓存
+                String cachedSummary = aiServiceRepository.getCachedSummary(chapter.getId());
+                if (cachedSummary != null && !cachedSummary.isEmpty()) {
+                    // 在主线程回调
+                    new android.os.Handler(android.os.Looper.getMainLooper()).post(() -> {
+                        callback.onSuccess(cachedSummary, true);
+                    });
+                    return;
+                }
+
+                // 需要生成新摘要，先在主线程显示加载状态
+                new android.os.Handler(android.os.Looper.getMainLooper()).post(() -> {
+                    callback.onLoading();
+                });
+                
+                // 获取章节内容
+                Chapter fullChapter = novelRepository.getChapterById(chapter.getId());
+                if (fullChapter == null || fullChapter.getContent() == null || fullChapter.getContent().isEmpty()) {
+                    new android.os.Handler(android.os.Looper.getMainLooper()).post(() -> {
+                        callback.onError("章节内容为空");
+                    });
+                    return;
+                }
+
+                Disposable disposable = aiServiceRepository.getOrGenerateSummary(fullChapter)
+                        .observeOn(AndroidSchedulers.mainThread())
+                        .subscribe(
+                                summary -> callback.onSuccess(summary, false),
+                                error -> callback.onError(error.getMessage())
+                        );
+                compositeDisposable.add(disposable);
+            } catch (Exception e) {
+                new android.os.Handler(android.os.Looper.getMainLooper()).post(() -> {
+                    callback.onError("获取章节内容失败: " + e.getMessage());
+                });
+            }
+        });
+    }
+
+    /**
+     * 重新生成章节摘要（忽略缓存）
+     * 验证需求：8.1 - 调用AI服务API并传递章节文本
+     * 
+     * @param chapter 章节对象
+     * @param callback 结果回调
+     */
+    public void regenerateChapterSummary(Chapter chapter, SummaryCallback callback) {
+        if (chapter == null) {
+            callback.onError("章节不存在");
+            return;
+        }
+
+        callback.onLoading();
+
+        executorService.execute(() -> {
+            try {
+                Chapter fullChapter = novelRepository.getChapterById(chapter.getId());
+                if (fullChapter == null || fullChapter.getContent() == null || fullChapter.getContent().isEmpty()) {
+                    callback.onError("章节内容为空");
+                    return;
+                }
+
+                final long chapterId = chapter.getId();
+                Disposable disposable = aiServiceRepository.generateSummary(fullChapter.getContent())
+                        .subscribe(
+                                summary -> {
+                                    // 在后台线程保存到缓存
+                                    aiServiceRepository.saveSummaryCache(chapterId, summary);
+                                    // 切换到主线程回调
+                                    new android.os.Handler(android.os.Looper.getMainLooper()).post(() -> {
+                                        callback.onSuccess(summary, false);
+                                    });
+                                },
+                                error -> {
+                                    new android.os.Handler(android.os.Looper.getMainLooper()).post(() -> {
+                                        callback.onError(error.getMessage());
+                                    });
+                                }
+                        );
+                compositeDisposable.add(disposable);
+            } catch (Exception e) {
+                callback.onError("获取章节内容失败: " + e.getMessage());
+            }
+        });
+    }
+
+    /**
+     * 获取已有摘要的章节ID集合（异步加载）
+     * 
+     * @param callback 回调函数
+     */
+    public void loadChaptersWithSummary(java.util.function.Consumer<Set<Long>> callback) {
+        executorService.execute(() -> {
+            Set<Long> result = new HashSet<>();
+            ReaderUiState currentState = _uiState.getValue();
+            if (currentState != null && currentState.getChapters() != null) {
+                for (Chapter chapter : currentState.getChapters()) {
+                    String cached = aiServiceRepository.getCachedSummary(chapter.getId());
+                    if (cached != null && !cached.isEmpty()) {
+                        result.add(chapter.getId());
+                    }
+                }
+            }
+            // 在主线程回调
+            new android.os.Handler(android.os.Looper.getMainLooper()).post(() -> {
+                callback.accept(result);
+            });
+        });
+    }
+
+    /**
+     * 获取已有摘要的章节ID集合（同步方法，仅在后台线程调用）
+     * 
+     * @return 已有摘要的章节ID集合
+     */
+    public Set<Long> getChaptersWithSummary() {
+        Set<Long> result = new HashSet<>();
+        ReaderUiState currentState = _uiState.getValue();
+        if (currentState != null && currentState.getChapters() != null) {
+            for (Chapter chapter : currentState.getChapters()) {
+                String cached = aiServiceRepository.getCachedSummary(chapter.getId());
+                if (cached != null && !cached.isEmpty()) {
+                    result.add(chapter.getId());
+                }
+            }
+        }
+        return result;
+    }
+
+    /**
+     * 检查章节是否有缓存的摘要
+     * 
+     * @param chapterId 章节ID
+     * @return 是否有缓存
+     */
+    public boolean hasCachedSummary(long chapterId) {
+        String cached = aiServiceRepository.getCachedSummary(chapterId);
+        return cached != null && !cached.isEmpty();
+    }
+
+    /**
+     * 摘要回调接口
+     */
+    public interface SummaryCallback {
+        void onLoading();
+        void onSuccess(String summary, boolean fromCache);
+        void onError(String message);
+    }
+
+    /**
+     * 获取有摘要的章节列表（异步）
+     * 
+     * @param callback 回调函数
+     */
+    public void loadChaptersWithSummaryList(java.util.function.Consumer<List<com.example.read.data.entity.ChapterInfo>> callback) {
+        executorService.execute(() -> {
+            List<com.example.read.data.entity.ChapterInfo> result = novelRepository.getChaptersWithSummary(currentNovelId);
+            new android.os.Handler(android.os.Looper.getMainLooper()).post(() -> {
+                callback.accept(result != null ? result : new java.util.ArrayList<>());
+            });
+        });
+    }
+
+    /**
+     * 删除章节摘要
+     * 
+     * @param chapterId 章节ID
+     * @param callback 完成回调
+     */
+    public void deleteSummary(long chapterId, Runnable callback) {
+        executorService.execute(() -> {
+            novelRepository.deleteChapterSummary(chapterId);
+            new android.os.Handler(android.os.Looper.getMainLooper()).post(callback);
+        });
+    }
+
     @Override
     protected void onCleared() {
         super.onCleared();
@@ -1428,6 +1646,9 @@ public class ReaderViewModel extends ViewModel {
         if (ttsPositionObserver != null) {
             ttsRepository.getCurrentPosition().removeObserver(ttsPositionObserver);
         }
+        
+        // 清理RxJava订阅
+        compositeDisposable.clear();
         
         // 关闭线程池
         executorService.shutdown();

@@ -3,6 +3,7 @@ package com.example.read.data.repository;
 import androidx.lifecycle.LiveData;
 import androidx.lifecycle.Transformations;
 
+import com.example.read.data.dao.ChapterDao;
 import com.example.read.data.dao.NovelDao;
 import com.example.read.data.dao.ReadingStatisticsDao;
 import com.example.read.data.entity.NovelEntity;
@@ -32,11 +33,13 @@ public class StatisticsRepositoryImpl implements StatisticsRepository {
 
     private final ReadingStatisticsDao statisticsDao;
     private final NovelDao novelDao;
+    private final ChapterDao chapterDao;
 
     @Inject
-    public StatisticsRepositoryImpl(ReadingStatisticsDao statisticsDao, NovelDao novelDao) {
+    public StatisticsRepositoryImpl(ReadingStatisticsDao statisticsDao, NovelDao novelDao, ChapterDao chapterDao) {
         this.statisticsDao = statisticsDao;
         this.novelDao = novelDao;
+        this.chapterDao = chapterDao;
     }
 
     /**
@@ -136,7 +139,7 @@ public class StatisticsRepositoryImpl implements StatisticsRepository {
      * 获取指定周期内阅读最多的小说排行
      * 验证需求：12.5 - 列出阅读最多的小说排行
      * 
-     * 返回的列表按总阅读时长降序排列
+     * 返回的列表按总阅读时长降序排列，包含阅读进度和小说总字数
      */
     @Override
     public List<NovelReadingStats> getMostReadNovels(StatisticsPeriod period, int limit) {
@@ -161,6 +164,21 @@ public class StatisticsRepositoryImpl implements StatisticsRepository {
             if (novel != null) {
                 stats.setNovelTitle(novel.getTitle());
                 stats.setNovelAuthor(novel.getAuthor());
+                stats.setTotalChapters(novel.getTotalChapters());
+                
+                // 计算阅读进度
+                if (novel.getCurrentChapterId() != null && novel.getTotalChapters() > 0) {
+                    // 获取当前章节索引
+                    int currentChapterIndex = getCurrentChapterIndex(novel.getId(), novel.getCurrentChapterId());
+                    stats.setCurrentChapterIndex(currentChapterIndex);
+                    stats.setReadingProgress((float) currentChapterIndex / novel.getTotalChapters());
+                } else {
+                    stats.setReadingProgress(0f);
+                }
+                
+                // 获取小说总字数
+                long totalWordCount = chapterDao.getTotalWordCount(duration.novelId);
+                stats.setTotalWordCount(totalWordCount);
             } else {
                 stats.setNovelTitle("未知小说");
                 stats.setNovelAuthor("未知作者");
@@ -170,6 +188,18 @@ public class StatisticsRepositoryImpl implements StatisticsRepository {
         }
         
         return result;
+    }
+
+    /**
+     * 获取当前章节的索引
+     */
+    private int getCurrentChapterIndex(long novelId, long chapterId) {
+        // 通过章节ID获取章节索引
+        var chapter = chapterDao.getChapterById(chapterId);
+        if (chapter != null) {
+            return chapter.getChapterIndex();
+        }
+        return 0;
     }
 
     /**
@@ -183,5 +213,70 @@ public class StatisticsRepositoryImpl implements StatisticsRepository {
         calendar.set(Calendar.SECOND, 0);
         calendar.set(Calendar.MILLISECOND, 0);
         return calendar.getTimeInMillis();
+    }
+
+    /**
+     * 生成测试数据（仅用于调试）
+     * 为所有小说生成过去30天的随机阅读记录
+     */
+    @Override
+    public void generateTestData() {
+        // 获取所有小说
+        List<NovelEntity> novels = novelDao.getAllNovelsSync();
+        if (novels == null || novels.isEmpty()) {
+            return;
+        }
+
+        java.util.Random random = new java.util.Random();
+        Calendar calendar = Calendar.getInstance();
+        
+        // 为每本小说生成过去30天的阅读记录
+        for (NovelEntity novel : novels) {
+            // 每本小说随机生成10-25天的阅读记录
+            int daysToGenerate = 10 + random.nextInt(16);
+            
+            for (int i = 0; i < daysToGenerate; i++) {
+                // 随机选择过去30天中的某一天
+                int daysAgo = random.nextInt(30);
+                calendar.setTimeInMillis(System.currentTimeMillis());
+                calendar.add(Calendar.DAY_OF_YEAR, -daysAgo);
+                long dateTimestamp = getDayStartTimestamp(calendar.getTimeInMillis());
+                
+                // 随机生成阅读时长（10分钟到3小时）
+                long duration = (10 + random.nextInt(170)) * 60 * 1000L; // 毫秒
+                
+                // 随机生成阅读字数（1000-50000字）
+                int charCount = 1000 + random.nextInt(49000);
+                
+                // 随机生成阅读时段（更倾向于晚上）
+                int hourOfDay;
+                int hourRandom = random.nextInt(100);
+                if (hourRandom < 40) {
+                    // 40%概率在晚上20-23点
+                    hourOfDay = 20 + random.nextInt(4);
+                } else if (hourRandom < 70) {
+                    // 30%概率在下午14-19点
+                    hourOfDay = 14 + random.nextInt(6);
+                } else if (hourRandom < 85) {
+                    // 15%概率在上午9-13点
+                    hourOfDay = 9 + random.nextInt(5);
+                } else {
+                    // 15%概率在其他时间
+                    hourOfDay = random.nextInt(24);
+                }
+                
+                // 创建统计实体
+                ReadingStatisticsEntity entity = new ReadingStatisticsEntity(
+                        dateTimestamp,
+                        novel.getId(),
+                        duration,
+                        charCount,
+                        hourOfDay
+                );
+                
+                // 保存到数据库
+                statisticsDao.insertStatistics(entity);
+            }
+        }
     }
 }

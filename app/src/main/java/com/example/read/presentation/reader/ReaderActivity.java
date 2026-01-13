@@ -119,6 +119,7 @@ public class ReaderActivity extends AppCompatActivity {
     private ImageButton btnSearch;
     private ImageButton btnBookmark;
     private ImageButton btnTts;
+    private ImageButton btnSummaryManager;
     
     // 底部工具栏
     private LinearLayout bottomToolbar;
@@ -148,6 +149,13 @@ public class ReaderActivity extends AppCompatActivity {
     private TextView searchNavPosition;
     private ImageButton searchNavNext;
     private TextView searchNavReturn;
+    
+    // AI摘要对话框
+    private androidx.appcompat.app.AlertDialog summaryDialog;
+    
+    // 摘要管理对话框
+    private BottomSheetDialog summaryManagerDialog;
+    private SummaryAdapter summaryAdapter;
     
     // TTS控制面板
     private TTSControlDialog ttsControlDialog;
@@ -185,6 +193,12 @@ public class ReaderActivity extends AppCompatActivity {
     // 分页后台线程
     private ExecutorService paginationExecutor;
     private final AtomicInteger paginationTaskId = new AtomicInteger(0);  // 分页任务版本号，用于取消旧任务
+    
+    // 章节切换状态（提升为类成员变量，以便在分页完成回调中访问）
+    private boolean isChapterChanging = false;           // 章节切换中标志
+    private long lastChapterChangeTime = 0;              // 上次章节切换时间
+    private Runnable pendingChapterChange = null;        // 待执行的章节切换任务
+    private static final long CHAPTER_CHANGE_DEBOUNCE = 1200; // 章节切换防抖时间（毫秒）
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -233,6 +247,7 @@ public class ReaderActivity extends AppCompatActivity {
         btnSearch = findViewById(R.id.btn_search);
         btnBookmark = findViewById(R.id.btn_bookmark);
         btnTts = findViewById(R.id.btn_tts);
+        btnSummaryManager = findViewById(R.id.btn_summary_manager);
         
         // 底部工具栏
         bottomToolbar = findViewById(R.id.bottom_toolbar);
@@ -471,6 +486,9 @@ public class ReaderActivity extends AppCompatActivity {
         // 朗读按钮 - 显示TTS控制面板
         btnTts.setOnClickListener(v -> showTTSControlDialog());
         
+        // 摘要管理按钮
+        btnSummaryManager.setOnClickListener(v -> showSummaryManagerDialog());
+        
         // TTS悬浮控制条按钮
         ttsMiniPlayPause.setOnClickListener(v -> {
             ReaderUiState state = viewModel.getUiState().getValue();
@@ -567,10 +585,7 @@ public class ReaderActivity extends AppCompatActivity {
         
         // ViewPager2页面切换监听
         pageViewPager.registerOnPageChangeCallback(new ViewPager2.OnPageChangeCallback() {
-            private boolean isChapterChanging = false; // 章节切换中标志
-            private long lastChapterChangeTime = 0;    // 上次章节切换时间
-            private static final long CHAPTER_CHANGE_DEBOUNCE = 1200; // 章节切换防抖时间（毫秒）
-            private Runnable pendingChapterChange = null; // 待执行的章节切换任务
+            // 注意：isChapterChanging, lastChapterChangeTime, pendingChapterChange 已提升为类成员变量
             private int lastTriggeredPosition = -1; // 上次触发章节切换的位置
             
             @Override
@@ -728,6 +743,48 @@ public class ReaderActivity extends AppCompatActivity {
                         Log.d(TAG, "[翻页模式] 用户在相邻章节页面拖动，保持章节切换任务");
                     }
                 }
+                
+                // 关键修复：当用户停止滑动（IDLE状态）时，检查页面位置是否正确
+                // 如果用户停在相邻章节的预览页面上，但分页已完成，需要确保状态一致
+                if (state == ViewPager2.SCROLL_STATE_IDLE && isPaginationReady && !isChapterChanging) {
+                    int currentPosition = pageViewPager.getCurrentItem();
+                    boolean isOnPrevChapterPage = pageAdapter.isPreviousChapterPage(currentPosition);
+                    boolean isOnNextChapterPage = pageAdapter.isNextChapterPage(currentPosition);
+                    
+                    // 如果停在相邻章节页面上，但没有待执行的章节切换任务
+                    // 说明之前的章节切换被取消了，需要检查是否应该重新触发
+                    if ((isOnPrevChapterPage || isOnNextChapterPage) && pendingChapterChange == null) {
+                        Log.d(TAG, "[翻页模式] IDLE状态检测到停在相邻章节页面，position=" + currentPosition 
+                                + ", isPrev=" + isOnPrevChapterPage + ", isNext=" + isOnNextChapterPage
+                                + ", 距上次切换=" + (System.currentTimeMillis() - lastChapterChangeTime) + "ms");
+                        
+                        // 检查防抖时间是否已过
+                        if (System.currentTimeMillis() - lastChapterChangeTime >= CHAPTER_CHANGE_DEBOUNCE) {
+                            // 防抖时间已过，可以触发章节切换
+                            if (isOnPrevChapterPage) {
+                                ReaderUiState uiState = viewModel.getUiState().getValue();
+                                if (uiState != null && uiState.canGoPreviousChapter()) {
+                                    Log.d(TAG, "[翻页模式] IDLE触发上一章切换");
+                                    isChapterChanging = true;
+                                    lastChapterChangeTime = System.currentTimeMillis();
+                                    viewModel.goToPreviousChapter();
+                                    needRestorePosition = false;
+                                    pendingPageIndex = Integer.MAX_VALUE;
+                                }
+                            } else if (isOnNextChapterPage) {
+                                ReaderUiState uiState = viewModel.getUiState().getValue();
+                                if (uiState != null && uiState.canGoNextChapter()) {
+                                    Log.d(TAG, "[翻页模式] IDLE触发下一章切换");
+                                    isChapterChanging = true;
+                                    lastChapterChangeTime = System.currentTimeMillis();
+                                    viewModel.goToNextChapter();
+                                    needRestorePosition = false;
+                                    pendingPageIndex = 0;
+                                }
+                            }
+                        }
+                    }
+                }
             }
         });
     }
@@ -765,23 +822,20 @@ public class ReaderActivity extends AppCompatActivity {
             viewModel.clearJumpToPosition();
             
             if (currentPageMode == PageMode.SCROLL) {
-                // 滚动模式：jumpPosition 可能是滚动位置或字符位置
-                // 如果值较大（>1000），认为是滚动位置；否则需要计算
-                if (jumpPosition > 1000) {
-                    contentScrollView.post(() -> contentScrollView.scrollTo(0, jumpPosition));
-                } else {
-                    // 字符位置，需要估算滚动位置（简单处理：按比例计算）
-                    String content = state.getDisplayContent();
-                    if (content != null && !content.isEmpty()) {
-                        float ratio = (float) jumpPosition / content.length();
-                        contentScrollView.post(() -> {
-                            View child = contentScrollView.getChildAt(0);
-                            if (child != null) {
-                                int targetScroll = (int) (child.getHeight() * ratio);
-                                contentScrollView.scrollTo(0, targetScroll);
-                            }
-                        });
-                    }
+                // 滚动模式：jumpPosition 是字符位置，需要计算对应的滚动位置
+                String content = state.getDisplayContent();
+                if (content != null && !content.isEmpty() && jumpPosition >= 0) {
+                    // 根据字符位置计算滚动比例
+                    float ratio = (float) jumpPosition / content.length();
+                    ratio = Math.max(0f, Math.min(1f, ratio)); // 限制在0-1范围内
+                    final float finalRatio = ratio;
+                    contentScrollView.post(() -> {
+                        View child = contentScrollView.getChildAt(0);
+                        if (child != null) {
+                            int targetScroll = (int) (child.getHeight() * finalRatio);
+                            contentScrollView.scrollTo(0, targetScroll);
+                        }
+                    });
                 }
             } else {
                 // 翻页模式：需要根据字符位置找到对应的页面
@@ -1168,13 +1222,17 @@ public class ReaderActivity extends AppCompatActivity {
                             // 不需要恢复位置，保持当前页面
                             Log.d(TAG, "[分页完成] 保持当前页面，不跳转");
                             isPaginationReady = true;
+                            // 分页完成，重置章节切换标志
+                            isChapterChanging = false;
                             return;
                         }
                         
                         pageViewPager.setCurrentItem(targetPage, false);
                         
                         isPaginationReady = true;
-                        Log.d(TAG, "[分页完成] isPaginationReady=true, 当前页=" + targetPage);
+                        // 分页完成，重置章节切换标志（关键修复：不再等待800ms延迟）
+                        isChapterChanging = false;
+                        Log.d(TAG, "[分页完成] isPaginationReady=true, isChapterChanging=false, 当前页=" + targetPage);
                     });
                     
                 } catch (Exception e) {
@@ -1855,12 +1913,21 @@ public class ReaderActivity extends AppCompatActivity {
             TextView searchResultHint = view.findViewById(R.id.search_result_hint);
             TextView chapterCountText = view.findViewById(R.id.chapter_count_text);
             
+            // 设置摘要按钮点击监听
+            chapterAdapter.setOnSummaryClickListener((chapter, hasSummary) -> {
+                showSummaryDialog(chapter, hasSummary);
+            });
+            
             // 设置章节数量
             ReaderUiState state = viewModel.getUiState().getValue();
             if (state != null && state.getChapters() != null) {
                 chapterCountText.setText(getString(R.string.reader_chapter_count, state.getChapters().size()));
                 // 设置原始章节列表用于过滤
                 chapterAdapter.setOriginalList(state.getChapters());
+                // 异步加载已有摘要的章节
+                viewModel.loadChaptersWithSummary(chaptersWithSummary -> {
+                    chapterAdapter.setChaptersWithSummary(chaptersWithSummary);
+                });
             }
             
             // 搜索按钮点击 - 显示搜索栏
@@ -1946,6 +2013,10 @@ public class ReaderActivity extends AppCompatActivity {
             // 更新章节列表数据
             if (state.getChapters() != null) {
                 chapterAdapter.setOriginalList(state.getChapters());
+                // 异步更新已有摘要的章节
+                viewModel.loadChaptersWithSummary(chaptersWithSummary -> {
+                    chapterAdapter.setChaptersWithSummary(chaptersWithSummary);
+                });
                 TextView chapterCountText = chapterListDialog.findViewById(R.id.chapter_count_text);
                 if (chapterCountText != null) {
                     chapterCountText.setText(getString(R.string.reader_chapter_count, state.getChapters().size()));
@@ -2114,7 +2185,18 @@ public class ReaderActivity extends AppCompatActivity {
                 }
                 viewModel.setFont(font);
             }
+            
+            @Override
+            public void onBlockedWordManageClick(long novelId, String novelTitle) {
+                // 跳转到屏蔽词管理界面
+                NavigationHelper.navigateToBlockedWord(ReaderActivity.this, novelId, novelTitle);
+            }
         });
+        
+        // 设置小说信息（用于屏蔽词管理）
+        if (state != null && state.getNovel() != null) {
+            settingsDialog.setNovelInfo(state.getNovel().getId(), state.getNovel().getTitle());
+        }
         
         settingsDialog.show();
     }
@@ -2202,9 +2284,14 @@ public class ReaderActivity extends AppCompatActivity {
                 + ", keyword=" + s.getSearchKeyword());
             
             if (searchDialog != null && searchDialog.isShowing()) {
-                if (s.hasSearchResults()) {
+                // 当有搜索关键词时，无论结果是否为空都更新显示
+                // showSearchResults 方法会正确处理空结果（显示"无搜索结果"）
+                String keyword = s.getSearchKeyword();
+                if (keyword != null && !keyword.isEmpty()) {
                     searchDialog.showSearchResults(s.getSearchResults());
-                    searchDialog.setCurrentIndex(s.getCurrentSearchIndex());
+                    if (s.hasSearchResults()) {
+                        searchDialog.setCurrentIndex(s.getCurrentSearchIndex());
+                    }
                 }
             }
             // 处理待显示的导航栏（点击搜索结果时触发）
@@ -2466,6 +2553,170 @@ public class ReaderActivity extends AppCompatActivity {
     }
 
     /**
+     * 显示摘要管理对话框
+     */
+    private void showSummaryManagerDialog() {
+        // 创建 BottomSheetDialog
+        summaryManagerDialog = new BottomSheetDialog(this);
+        View dialogView = getLayoutInflater().inflate(R.layout.dialog_summary_manager, null);
+        summaryManagerDialog.setContentView(dialogView);
+        
+        // 获取视图组件
+        RecyclerView recyclerView = dialogView.findViewById(R.id.summary_list_recycler_view);
+        TextView summaryCountText = dialogView.findViewById(R.id.summary_count_text);
+        View emptyState = dialogView.findViewById(R.id.empty_state);
+        
+        // 设置 RecyclerView
+        recyclerView.setLayoutManager(new LinearLayoutManager(this));
+        summaryAdapter = new SummaryAdapter();
+        recyclerView.setAdapter(summaryAdapter);
+        
+        // 设置点击监听 - 显示摘要详情
+        summaryAdapter.setOnItemClickListener(chapter -> {
+            showSummaryDetailDialog(chapter);
+        });
+        
+        // 设置删除监听
+        summaryAdapter.setOnDeleteListener((chapter, position) -> {
+            // 显示确认对话框
+            new androidx.appcompat.app.AlertDialog.Builder(this)
+                    .setTitle(R.string.summary_delete)
+                    .setMessage(R.string.summary_delete_confirm)
+                    .setPositiveButton(android.R.string.ok, (dialog, which) -> {
+                        // 删除摘要
+                        viewModel.deleteSummary(chapter.getId(), () -> {
+                            summaryAdapter.removeItem(position);
+                            // 更新计数
+                            int newCount = summaryAdapter.getItemCount();
+                            summaryCountText.setText(getString(R.string.summary_manager_count, newCount));
+                            // 检查是否为空
+                            if (newCount == 0) {
+                                recyclerView.setVisibility(View.GONE);
+                                emptyState.setVisibility(View.VISIBLE);
+                            }
+                            Toast.makeText(this, R.string.summary_deleted, Toast.LENGTH_SHORT).show();
+                        });
+                    })
+                    .setNegativeButton(android.R.string.cancel, null)
+                    .show();
+        });
+        
+        // 加载摘要列表
+        viewModel.loadChaptersWithSummaryList(summaryList -> {
+            if (summaryList.isEmpty()) {
+                recyclerView.setVisibility(View.GONE);
+                emptyState.setVisibility(View.VISIBLE);
+                summaryCountText.setText(getString(R.string.summary_manager_count, 0));
+            } else {
+                recyclerView.setVisibility(View.VISIBLE);
+                emptyState.setVisibility(View.GONE);
+                summaryAdapter.setSummaryList(summaryList);
+                summaryCountText.setText(getString(R.string.summary_manager_count, summaryList.size()));
+            }
+        });
+        
+        summaryManagerDialog.show();
+    }
+
+    /**
+     * 显示摘要详情对话框
+     * @param chapterInfo 章节信息（包含摘要）
+     */
+    private void showSummaryDetailDialog(com.example.read.data.entity.ChapterInfo chapterInfo) {
+        View dialogView = getLayoutInflater().inflate(R.layout.dialog_summary, null);
+        
+        TextView titleText = dialogView.findViewById(R.id.summary_title);
+        View loadingContainer = dialogView.findViewById(R.id.loading_container);
+        ScrollView contentContainer = dialogView.findViewById(R.id.content_container);
+        TextView summaryContent = dialogView.findViewById(R.id.summary_content);
+        View errorContainer = dialogView.findViewById(R.id.error_container);
+        android.widget.Button btnRegenerate = dialogView.findViewById(R.id.btn_regenerate);
+        android.widget.Button btnClose = dialogView.findViewById(R.id.btn_close);
+        android.widget.Button btnJumpToChapter = dialogView.findViewById(R.id.btn_retry);
+        
+        // 设置标题
+        titleText.setText(chapterInfo.getTitle());
+        
+        // 直接显示摘要内容（因为已经有缓存）
+        loadingContainer.setVisibility(View.GONE);
+        contentContainer.setVisibility(View.VISIBLE);
+        errorContainer.setVisibility(View.GONE);
+        summaryContent.setText(chapterInfo.getSummary());
+        
+        // 修改重试按钮为跳转章节按钮
+        btnJumpToChapter.setText(R.string.summary_jump_to_chapter);
+        btnJumpToChapter.setVisibility(View.VISIBLE);
+        btnRegenerate.setVisibility(View.VISIBLE);
+        
+        // 创建对话框
+        androidx.appcompat.app.AlertDialog detailDialog = new androidx.appcompat.app.AlertDialog.Builder(this)
+                .setView(dialogView)
+                .setCancelable(true)
+                .create();
+        
+        // 关闭按钮
+        btnClose.setOnClickListener(v -> detailDialog.dismiss());
+        
+        // 跳转章节按钮
+        btnJumpToChapter.setOnClickListener(v -> {
+            detailDialog.dismiss();
+            summaryManagerDialog.dismiss();
+            viewModel.loadChapter(chapterInfo.getId());
+            animateChapterChange(false);
+        });
+        
+        // 重新生成按钮
+        btnRegenerate.setOnClickListener(v -> {
+            // 转换为 Chapter 对象用于重新生成
+            Chapter chapter = new Chapter();
+            chapter.setId(chapterInfo.getId());
+            chapter.setNovelId(chapterInfo.getNovelId());
+            chapter.setTitle(chapterInfo.getTitle());
+            chapter.setContent(""); // content 不需要，会在 ViewModel 中重新加载
+            chapter.setChapterIndex(chapterInfo.getChapterIndex());
+            chapter.setWordCount(chapterInfo.getWordCount());
+            chapter.setSourceUrl(chapterInfo.getSourceUrl());
+            
+            // 显示加载状态
+            loadingContainer.setVisibility(View.VISIBLE);
+            contentContainer.setVisibility(View.GONE);
+            btnRegenerate.setVisibility(View.GONE);
+            btnJumpToChapter.setVisibility(View.GONE);
+            
+            viewModel.regenerateChapterSummary(chapter, new ReaderViewModel.SummaryCallback() {
+                @Override
+                public void onLoading() {
+                    // 已经在上面设置了加载状态
+                }
+
+                @Override
+                public void onSuccess(String summary, boolean fromCache) {
+                    runOnUiThread(() -> {
+                        loadingContainer.setVisibility(View.GONE);
+                        contentContainer.setVisibility(View.VISIBLE);
+                        summaryContent.setText(summary);
+                        btnRegenerate.setVisibility(View.VISIBLE);
+                        btnJumpToChapter.setVisibility(View.VISIBLE);
+                    });
+                }
+
+                @Override
+                public void onError(String message) {
+                    runOnUiThread(() -> {
+                        loadingContainer.setVisibility(View.GONE);
+                        errorContainer.setVisibility(View.VISIBLE);
+                        TextView errorMessage = dialogView.findViewById(R.id.error_message);
+                        errorMessage.setText(message);
+                        btnJumpToChapter.setVisibility(View.VISIBLE);
+                    });
+                }
+            });
+        });
+        
+        detailDialog.show();
+    }
+
+    /**
      * 显示书签列表对话框
      * 验证需求：7.3 - 显示书签列表
      */
@@ -2526,14 +2777,43 @@ public class ReaderActivity extends AppCompatActivity {
         btnSave.setOnClickListener(v -> {
             String note = etNote.getText() != null ? etNote.getText().toString().trim() : "";
             int position = 0;
+            String textPreview = "";
+            String content = state.getDisplayContent();
+            
             if (currentPageMode == PageMode.SCROLL) {
-                position = contentScrollView.getScrollY();
+                // 滚动模式：根据滚动位置估算字符位置
+                int scrollY = contentScrollView.getScrollY();
+                View child = contentScrollView.getChildAt(0);
+                if (child != null && child.getHeight() > 0 && content != null && !content.isEmpty()) {
+                    float ratio = (float) scrollY / child.getHeight();
+                    position = (int) (content.length() * ratio);
+                    position = Math.max(0, Math.min(position, content.length() - 1));
+                }
             } else {
+                // 翻页模式：获取当前页面的起始字符位置
                 int currentItem = pageViewPager.getCurrentItem();
                 int startIndex = pageAdapter.getCurrentChapterStartIndex();
-                position = Math.max(0, currentItem - startIndex);
+                int pageIndexInChapter = Math.max(0, currentItem - startIndex);
+                
+                // 从currentPages获取原始文本位置
+                if (currentPages != null && pageIndexInChapter < currentPages.size()) {
+                    TextPaginator.PageInfo pageInfo = currentPages.get(pageIndexInChapter);
+                    position = pageInfo.getOriginalStartIndex();
+                }
             }
-            viewModel.addBookmark(note, position);
+            
+            // 获取文本预览（从position位置开始截取50个字符）
+            if (content != null && !content.isEmpty() && position < content.length()) {
+                int endIndex = Math.min(position + 50, content.length());
+                textPreview = content.substring(position, endIndex);
+                // 清理文本预览：去除换行符，添加省略号
+                textPreview = textPreview.replace("\n", " ").trim();
+                if (endIndex < content.length()) {
+                    textPreview += "...";
+                }
+            }
+            
+            viewModel.addBookmark(note, position, textPreview);
             dialog.dismiss();
         });
 
@@ -2565,6 +2845,8 @@ public class ReaderActivity extends AppCompatActivity {
         super.onResume();
         // 恢复时间更新
         startTimeUpdate();
+        // 刷新屏蔽词（从屏蔽词管理界面返回时生效）
+        viewModel.refreshBlockedWords();
     }
     
     @Override
@@ -2676,5 +2958,144 @@ public class ReaderActivity extends AppCompatActivity {
             // 当前不是夜间模式，切换到夜间模式
             viewModel.setThemeById("night");
         }
+    }
+
+    // ==================== AI摘要功能 ====================
+
+    /**
+     * 显示章节摘要对话框
+     * 验证需求：8.1, 8.2, 8.3, 8.4
+     * 
+     * @param chapter 章节对象
+     * @param hasSummary 是否已有摘要
+     */
+    private void showSummaryDialog(Chapter chapter, boolean hasSummary) {
+        View dialogView = getLayoutInflater().inflate(R.layout.dialog_summary, null);
+        
+        TextView titleText = dialogView.findViewById(R.id.summary_title);
+        View loadingContainer = dialogView.findViewById(R.id.loading_container);
+        ScrollView contentContainer = dialogView.findViewById(R.id.content_container);
+        TextView summaryContent = dialogView.findViewById(R.id.summary_content);
+        View errorContainer = dialogView.findViewById(R.id.error_container);
+        TextView errorMessage = dialogView.findViewById(R.id.error_message);
+        android.widget.Button btnRetry = dialogView.findViewById(R.id.btn_retry);
+        android.widget.Button btnRegenerate = dialogView.findViewById(R.id.btn_regenerate);
+        android.widget.Button btnClose = dialogView.findViewById(R.id.btn_close);
+        
+        // 设置标题
+        titleText.setText(chapter.getTitle());
+        
+        // 创建对话框
+        summaryDialog = new androidx.appcompat.app.AlertDialog.Builder(this)
+                .setView(dialogView)
+                .setCancelable(true)
+                .create();
+        
+        // 关闭按钮
+        btnClose.setOnClickListener(v -> summaryDialog.dismiss());
+        
+        // 重试按钮
+        btnRetry.setOnClickListener(v -> {
+            loadSummary(chapter, loadingContainer, contentContainer, summaryContent, 
+                    errorContainer, errorMessage, btnRetry, btnRegenerate);
+        });
+        
+        // 重新生成按钮
+        btnRegenerate.setOnClickListener(v -> {
+            regenerateSummary(chapter, loadingContainer, contentContainer, summaryContent, 
+                    errorContainer, errorMessage, btnRetry, btnRegenerate);
+        });
+        
+        // 加载摘要
+        loadSummary(chapter, loadingContainer, contentContainer, summaryContent, 
+                errorContainer, errorMessage, btnRetry, btnRegenerate);
+        
+        summaryDialog.show();
+    }
+
+    /**
+     * 加载章节摘要
+     */
+    private void loadSummary(Chapter chapter, View loadingContainer, ScrollView contentContainer,
+                             TextView summaryContent, View errorContainer, TextView errorMessage,
+                             android.widget.Button btnRetry, android.widget.Button btnRegenerate) {
+        // 显示加载状态
+        loadingContainer.setVisibility(View.VISIBLE);
+        contentContainer.setVisibility(View.GONE);
+        errorContainer.setVisibility(View.GONE);
+        btnRetry.setVisibility(View.GONE);
+        btnRegenerate.setVisibility(View.GONE);
+        
+        viewModel.getChapterSummary(chapter, new ReaderViewModel.SummaryCallback() {
+            @Override
+            public void onLoading() {
+                // 已经在上面设置了加载状态
+            }
+
+            @Override
+            public void onSuccess(String summary, boolean fromCache) {
+                runOnUiThread(() -> {
+                    loadingContainer.setVisibility(View.GONE);
+                    contentContainer.setVisibility(View.VISIBLE);
+                    summaryContent.setText(summary);
+                    btnRegenerate.setVisibility(View.VISIBLE);
+                    // 更新章节列表中的摘要状态
+                    chapterAdapter.updateSummaryStatus(chapter.getId(), true);
+                });
+            }
+
+            @Override
+            public void onError(String message) {
+                runOnUiThread(() -> {
+                    loadingContainer.setVisibility(View.GONE);
+                    errorContainer.setVisibility(View.VISIBLE);
+                    errorMessage.setText(message);
+                    btnRetry.setVisibility(View.VISIBLE);
+                });
+            }
+        });
+    }
+
+    /**
+     * 重新生成章节摘要
+     */
+    private void regenerateSummary(Chapter chapter, View loadingContainer, ScrollView contentContainer,
+                                   TextView summaryContent, View errorContainer, TextView errorMessage,
+                                   android.widget.Button btnRetry, android.widget.Button btnRegenerate) {
+        // 显示加载状态
+        loadingContainer.setVisibility(View.VISIBLE);
+        contentContainer.setVisibility(View.GONE);
+        errorContainer.setVisibility(View.GONE);
+        btnRetry.setVisibility(View.GONE);
+        btnRegenerate.setVisibility(View.GONE);
+        
+        viewModel.regenerateChapterSummary(chapter, new ReaderViewModel.SummaryCallback() {
+            @Override
+            public void onLoading() {
+                // 已经在上面设置了加载状态
+            }
+
+            @Override
+            public void onSuccess(String summary, boolean fromCache) {
+                runOnUiThread(() -> {
+                    loadingContainer.setVisibility(View.GONE);
+                    contentContainer.setVisibility(View.VISIBLE);
+                    summaryContent.setText(summary);
+                    btnRegenerate.setVisibility(View.VISIBLE);
+                    // 更新章节列表中的摘要状态
+                    chapterAdapter.updateSummaryStatus(chapter.getId(), true);
+                });
+            }
+
+            @Override
+            public void onError(String message) {
+                runOnUiThread(() -> {
+                    loadingContainer.setVisibility(View.GONE);
+                    errorContainer.setVisibility(View.VISIBLE);
+                    errorMessage.setText(message);
+                    btnRetry.setVisibility(View.VISIBLE);
+                });
+            }
+        });
     }
 }

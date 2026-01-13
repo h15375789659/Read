@@ -12,9 +12,44 @@ import java.util.List;
 
 /**
  * 屏蔽词数据访问对象 - 提供屏蔽词表的CRUD操作
+ * 支持按小说ID查询屏蔽词
  */
 @Dao
 public interface BlockedWordDao {
+
+    // ==================== 按小说ID查询（新增） ====================
+
+    /**
+     * 获取指定小说的所有屏蔽词（按创建时间降序）
+     */
+    @Query("SELECT * FROM blocked_words WHERE novelId = :novelId ORDER BY createTime DESC")
+    LiveData<List<BlockedWordEntity>> getBlockedWordsByNovelId(long novelId);
+
+    /**
+     * 同步获取指定小说的所有屏蔽词
+     */
+    @Query("SELECT * FROM blocked_words WHERE novelId = :novelId")
+    List<BlockedWordEntity> getBlockedWordsByNovelIdSync(long novelId);
+
+    /**
+     * 获取指定小说的所有屏蔽词字符串列表
+     */
+    @Query("SELECT word FROM blocked_words WHERE novelId = :novelId")
+    List<String> getBlockedWordStringsByNovelId(long novelId);
+
+    /**
+     * 获取指定小说的屏蔽词数量
+     */
+    @Query("SELECT COUNT(*) FROM blocked_words WHERE novelId = :novelId")
+    int getBlockedWordCountByNovelId(long novelId);
+
+    /**
+     * 删除指定小说的所有屏蔽词
+     */
+    @Query("DELETE FROM blocked_words WHERE novelId = :novelId")
+    void deleteBlockedWordsByNovelId(long novelId);
+
+    // ==================== 通用查询（保留兼容） ====================
 
     @Query("SELECT * FROM blocked_words ORDER BY createTime DESC")
     LiveData<List<BlockedWordEntity>> getAllBlockedWords();

@@ -133,16 +133,23 @@ public class ParserUiState {
         private final int current;
         private final int total;
         private final String currentChapterTitle;
+        private final boolean usingDynamicMode;  // 是否使用动态解析模式
 
         public DownloadProgress(int current, int total, String currentChapterTitle) {
+            this(current, total, currentChapterTitle, false);
+        }
+        
+        public DownloadProgress(int current, int total, String currentChapterTitle, boolean usingDynamicMode) {
             this.current = current;
             this.total = total;
             this.currentChapterTitle = currentChapterTitle;
+            this.usingDynamicMode = usingDynamicMode;
         }
 
         public int getCurrent() { return current; }
         public int getTotal() { return total; }
         public String getCurrentChapterTitle() { return currentChapterTitle; }
+        public boolean isUsingDynamicMode() { return usingDynamicMode; }
 
         /**
          * 获取进度百分比

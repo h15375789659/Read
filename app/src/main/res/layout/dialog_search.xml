@@ -64,22 +64,31 @@
         android:textSize="12sp"
         android:visibility="gone" />
 
-    <!-- 搜索结果列表（带快速滚动条） -->
-    <androidx.recyclerview.widget.RecyclerView
-        android:id="@+id/search_results_recycler_view"
+    <!-- 搜索结果列表容器（包含列表和自定义滚动条） -->
+    <FrameLayout
         android:layout_width="match_parent"
         android:layout_height="0dp"
-        android:layout_weight="1"
-        android:clipToPadding="false"
-        android:paddingBottom="16dp"
-        android:scrollbarStyle="outsideOverlay"
-        android:scrollbars="vertical"
-        android:fadeScrollbars="false"
-        app:fastScrollEnabled="true"
-        app:fastScrollVerticalThumbDrawable="@drawable/fast_scroll_thumb"
-        app:fastScrollVerticalTrackDrawable="@drawable/fast_scroll_track"
-        app:fastScrollHorizontalThumbDrawable="@drawable/fast_scroll_thumb_horizontal"
-        app:fastScrollHorizontalTrackDrawable="@drawable/fast_scroll_track_horizontal" />
+        android:layout_weight="1">
+
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/search_results_recycler_view"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:clipToPadding="false"
+            android:paddingBottom="16dp"
+            android:paddingEnd="12dp" />
+
+        <!-- 自定义快速滚动条（固定最小滑块高度） -->
+        <com.example.read.presentation.reader.FixedThumbFastScroller
+            android:id="@+id/fast_scroller"
+            android:layout_width="wrap_content"
+            android:layout_height="match_parent"
+            android:layout_gravity="end"
+            android:layout_marginVertical="4dp"
+            android:layout_marginEnd="2dp"
+            android:visibility="gone" />
+
+    </FrameLayout>
 
     <!-- 空状态提示 -->
     <LinearLayout

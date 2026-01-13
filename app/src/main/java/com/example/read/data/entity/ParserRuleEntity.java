@@ -32,6 +32,9 @@ public class ParserRuleEntity {
 
     private String removeSelectors; // 逗号分隔的选择器列表
     private long createTime;
+    
+    // 是否强制使用动态解析（WebView）
+    private boolean isDynamic;
 
     public ParserRuleEntity(@NonNull String name, @NonNull String domain,
                            @NonNull String chapterListSelector, @NonNull String chapterTitleSelector,
@@ -43,6 +46,7 @@ public class ParserRuleEntity {
         this.chapterLinkSelector = chapterLinkSelector;
         this.contentSelector = contentSelector;
         this.createTime = System.currentTimeMillis();
+        this.isDynamic = false;
     }
 
     // Getters
@@ -55,6 +59,7 @@ public class ParserRuleEntity {
     @NonNull public String getContentSelector() { return contentSelector; }
     public String getRemoveSelectors() { return removeSelectors; }
     public long getCreateTime() { return createTime; }
+    public boolean isDynamic() { return isDynamic; }
 
     // Setters
     public void setId(long id) { this.id = id; }
@@ -66,4 +71,5 @@ public class ParserRuleEntity {
     public void setContentSelector(@NonNull String contentSelector) { this.contentSelector = contentSelector; }
     public void setRemoveSelectors(String removeSelectors) { this.removeSelectors = removeSelectors; }
     public void setCreateTime(long createTime) { this.createTime = createTime; }
+    public void setDynamic(boolean isDynamic) { this.isDynamic = isDynamic; }
 }

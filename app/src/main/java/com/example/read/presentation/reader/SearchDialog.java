@@ -39,6 +39,7 @@ public class SearchDialog extends Dialog {
     private ImageButton btnSearch;
     private TextView searchResultCount;
     private RecyclerView searchResultsRecyclerView;
+    private FixedThumbFastScroller fastScroller;
     private LinearLayout emptyState;
     private TextView emptyStateText;
     private ProgressBar loadingProgress;
@@ -86,6 +87,7 @@ public class SearchDialog extends Dialog {
         btnSearch = findViewById(R.id.btn_search);
         searchResultCount = findViewById(R.id.search_result_count);
         searchResultsRecyclerView = findViewById(R.id.search_results_recycler_view);
+        fastScroller = findViewById(R.id.fast_scroller);
         emptyState = findViewById(R.id.empty_state);
         emptyStateText = findViewById(R.id.empty_state_text);
         loadingProgress = findViewById(R.id.loading_progress);
@@ -94,6 +96,9 @@ public class SearchDialog extends Dialog {
         adapter = new SearchResultAdapter();
         searchResultsRecyclerView.setLayoutManager(new LinearLayoutManager(getContext()));
         searchResultsRecyclerView.setAdapter(adapter);
+
+        // 绑定自定义快速滚动条
+        fastScroller.attachToRecyclerView(searchResultsRecyclerView);
     }
 
     /**
@@ -169,6 +174,7 @@ public class SearchDialog extends Dialog {
     private void showInitialState() {
         searchResultCount.setVisibility(View.GONE);
         searchResultsRecyclerView.setVisibility(View.GONE);
+        fastScroller.setVisibility(View.GONE);
         emptyState.setVisibility(View.VISIBLE);
         emptyStateText.setText(R.string.search_empty_hint);
         loadingProgress.setVisibility(View.GONE);
@@ -184,6 +190,7 @@ public class SearchDialog extends Dialog {
     private void showLoading() {
         searchResultCount.setVisibility(View.GONE);
         searchResultsRecyclerView.setVisibility(View.GONE);
+        fastScroller.setVisibility(View.GONE);
         emptyState.setVisibility(View.GONE);
         loadingProgress.setVisibility(View.VISIBLE);
     }
@@ -214,6 +221,15 @@ public class SearchDialog extends Dialog {
         // 这是因为 ListAdapter 的 DiffUtil 可能认为新旧列表相同而不更新
         adapter.submitList(null);
         adapter.submitList(new ArrayList<>(results));
+
+        // 延迟显示滚动条（等待列表渲染完成）
+        searchResultsRecyclerView.post(() -> {
+            if (fastScroller.shouldShow()) {
+                fastScroller.setVisibility(View.VISIBLE);
+            } else {
+                fastScroller.setVisibility(View.GONE);
+            }
+        });
     }
 
     /**
@@ -222,6 +238,7 @@ public class SearchDialog extends Dialog {
     private void showNoResults() {
         searchResultCount.setVisibility(View.GONE);
         searchResultsRecyclerView.setVisibility(View.GONE);
+        fastScroller.setVisibility(View.GONE);
         emptyState.setVisibility(View.VISIBLE);
         emptyStateText.setText(R.string.search_no_results);
         

@@ -16,6 +16,7 @@ import javax.inject.Singleton;
 
 /**
  * 屏蔽词仓库实现类
+ * 支持按小说ID管理屏蔽词
  */
 @Singleton
 public class BlockedWordRepositoryImpl implements BlockedWordRepository {
@@ -26,6 +27,44 @@ public class BlockedWordRepositoryImpl implements BlockedWordRepository {
     public BlockedWordRepositoryImpl(BlockedWordDao blockedWordDao) {
         this.blockedWordDao = blockedWordDao;
     }
+
+    // ==================== 按小说ID操作（主要使用） ====================
+
+    @Override
+    public LiveData<List<BlockedWord>> getBlockedWordsByNovelId(long novelId) {
+        return Transformations.map(blockedWordDao.getBlockedWordsByNovelId(novelId), BlockedWordMapper::toDomainList);
+    }
+
+    @Override
+    public List<BlockedWord> getBlockedWordsByNovelIdSync(long novelId) {
+        return BlockedWordMapper.toDomainList(blockedWordDao.getBlockedWordsByNovelIdSync(novelId));
+    }
+
+    @Override
+    public List<String> getBlockedWordStringsByNovelId(long novelId) {
+        return blockedWordDao.getBlockedWordStringsByNovelId(novelId);
+    }
+
+    @Override
+    public long insertBlockedWord(long novelId, String word) {
+        if (word == null || word.trim().isEmpty()) {
+            return -1;
+        }
+        BlockedWordEntity entity = new BlockedWordEntity(novelId, word.trim());
+        return blockedWordDao.insertBlockedWord(entity);
+    }
+
+    @Override
+    public int getBlockedWordCountByNovelId(long novelId) {
+        return blockedWordDao.getBlockedWordCountByNovelId(novelId);
+    }
+
+    @Override
+    public void deleteBlockedWordsByNovelId(long novelId) {
+        blockedWordDao.deleteBlockedWordsByNovelId(novelId);
+    }
+
+    // ==================== 通用操作 ====================
 
     @Override
     public LiveData<List<BlockedWord>> getAllBlockedWords() {
@@ -49,11 +88,13 @@ public class BlockedWordRepositoryImpl implements BlockedWordRepository {
     }
 
     @Override
+    @Deprecated
     public long insertBlockedWord(String word) {
+        // 已废弃，默认使用 novelId = 0（不推荐）
         if (word == null || word.trim().isEmpty()) {
             return -1;
         }
-        BlockedWordEntity entity = new BlockedWordEntity(word.trim());
+        BlockedWordEntity entity = new BlockedWordEntity(0, word.trim());
         return blockedWordDao.insertBlockedWord(entity);
     }
 
@@ -85,22 +126,11 @@ public class BlockedWordRepositoryImpl implements BlockedWordRepository {
         String result = text;
         for (String word : blockedWords) {
             if (word != null && !word.isEmpty()) {
-                String replacement = generateStars(word.length());
-                result = result.replace(word, replacement);
+                // 直接删除屏蔽词（用空字符串替换）
+                result = result.replace(word, "");
             }
         }
         
         return result;
-    }
-
-    /**
-     * 生成指定长度的星号字符串
-     */
-    private String generateStars(int length) {
-        StringBuilder sb = new StringBuilder();
-        for (int i = 0; i < length; i++) {
-            sb.append("*");
-        }
-        return sb.toString();
     }
 }

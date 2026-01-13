@@ -75,4 +75,10 @@ public interface StatisticsRepository {
      * @return 小说阅读统计列表（按阅读时长降序）
      */
     List<NovelReadingStats> getMostReadNovels(StatisticsPeriod period, int limit);
+
+    /**
+     * 生成测试数据（仅用于调试）
+     * 为所有小说生成过去30天的随机阅读记录
+     */
+    void generateTestData();
 }
